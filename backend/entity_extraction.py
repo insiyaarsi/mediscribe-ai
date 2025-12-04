@@ -1,54 +1,76 @@
 import spacy
 from typing import Dict, List
+from medical_categories import categorize_entities
 
 # Load the medical model (this happens once when the module is imported)
 print("Loading scispacy medical model...")
 nlp = spacy.load("en_core_sci_sm")
 print("Medical model loaded successfully!")
 
-def extract_medical_entities(text: str) -> Dict:
+def extract_medical_entities(text):
     """
-    Extract medical entities from transcribed text.
+    Extract and categorize medical entities from text using scispacy.
     
     Args:
-        text: The transcribed medical text
+        text (str): The transcribed medical text
         
     Returns:
-        Dictionary containing categorized medical entities
+        dict: Extracted entities with categories
     """
+    print("\n" + "="*50)
+    print("MEDICAL ENTITY EXTRACTION")
+    print("="*50)
+    
     try:
-        # Process the text with scispacy
+        # Process text with scispacy model
         doc = nlp(text)
         
-        # Initialize result structure
-        entities = {
-            "success": True,
-            "entities": [],
-            "entity_count": 0,
-            "error": None
+        # Extract entities
+        entities = []
+        for ent in doc.ents:
+            entities.append({
+                "text": ent.text,
+                "label": ent.label_,
+                "start": ent.start_char,
+                "end": ent.end_char
+            })
+        
+        print(f"Found {len(entities)} raw entities")
+        
+        # Categorize entities using our medical dictionaries
+        categorized = categorize_entities(entities)
+        
+        # Count entities by category
+        category_counts = {
+            "symptoms": len(categorized["symptoms"]),
+            "medications": len(categorized["medications"]),
+            "conditions": len(categorized["conditions"]),
+            "procedures": len(categorized["procedures"]),
+            "clinical_terms": len(categorized["clinical_terms"]),  # Added
+            "unknown": len(categorized["unknown"])
         }
         
-        # Extract all entities found by the model
-        for ent in doc.ents:
-            entity_info = {
-                "text": ent.text,
-                "label": ent.label_,  # Entity type (e.g., DISEASE, CHEMICAL)
-                "start": ent.start_char,  # Position in text
-                "end": ent.end_char
-            }
-            entities["entities"].append(entity_info)
+        print("\nEntity breakdown:")
+        for category, count in category_counts.items():
+            print(f"  {category}: {count}")
         
-        entities["entity_count"] = len(entities["entities"])
-        
-        return entities
+        return {
+            "success": True,
+            "entities": entities,  # Original entities with positions
+            "categorized": categorized,  # Organized by category
+            "category_counts": category_counts,
+            "total_entities": len(entities)
+        }
         
     except Exception as e:
-        print(f"Error in entity extraction: {str(e)}")
+        print(f"ERROR in entity extraction: {str(e)}")
         return {
             "success": False,
+            "error": str(e),
             "entities": [],
-            "entity_count": 0,
-            "error": str(e)
+            "categorized": {},
+            "category_counts": {},
+            "total_entities": 0
         }
 
 # Test function to verify it works

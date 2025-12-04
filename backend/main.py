@@ -44,6 +44,7 @@ def health_check():
     }
 
 # Audio transcription endpoint
+# Audio transcription endpoint
 @app.post("/api/transcribe")
 async def transcribe_audio(file: UploadFile = File(...)):
     print("\n" + "=" * 50)
@@ -79,19 +80,25 @@ async def transcribe_audio(file: UploadFile = File(...)):
         # Extract medical entities from transcription
         entities_result = extract_medical_entities(transcription_result)
         
-        print(f"Entity extraction: Found {entities_result['entity_count']} entities")
+        # Updated: use total_entities instead of entity_count
+        print(f"Entity extraction: Found {entities_result['total_entities']} entities")
+        print(f"Categorized: {entities_result['category_counts']}")
         
         # Clean up: delete the uploaded file
         os.remove(file_path)
         print(f"Cleaned up file: {file_path}")
         
-        # Return combined results
+        # Return combined results with new structure
         return {
             "success": True,
             "filename": file.filename,
             "transcription": transcription_result,
-            "entities": entities_result["entities"],
-            "entity_count": entities_result["entity_count"]
+            "entities": {
+                "total": entities_result["total_entities"],
+                "breakdown": entities_result["category_counts"],
+                "categorized": entities_result["categorized"],
+                "all_entities": entities_result["entities"]
+            }
         }
         
     except Exception as e:
