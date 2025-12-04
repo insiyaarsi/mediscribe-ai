@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
 from transcription import transcribe_audio
+from entity_extraction import extract_medical_entities
+from transcription import transcribe_audio_realtime
 
 # Create the FastAPI application
 app = FastAPI(
@@ -43,22 +45,20 @@ def health_check():
 
 # Audio transcription endpoint
 @app.post("/api/transcribe")
-async def transcribe_audio_endpoint(file: UploadFile = File(...)):
-    """
-    Upload an audio file and get transcription.
+async def transcribe_audio(file: UploadFile = File(...)):
+    print("\n" + "=" * 50)
+    print(f"Received file: {file.filename}")
+    print(f"Content type: {file.content_type}")
+    print("=" * 50)
     
-    Accepts: MP3, WAV, M4A, WebM (most audio formats)
-    Returns: Transcribed text and metadata
-    """
+    # Validate file extension
+    allowed_extensions = ['.mp3', '.wav', '.m4a', '.webm', '.ogg', '.flac']
+    file_ext = os.path.splitext(file.filename)[1].lower()
     
-    # Validate file type
-    allowed_extensions = [".mp3", ".wav", ".m4a", ".webm", ".ogg", ".flac"]
-    file_extension = os.path.splitext(file.filename)[1].lower()
-    
-    if file_extension not in allowed_extensions:
+    if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
-            detail=f"Invalid file type. Allowed: {', '.join(allowed_extensions)}"
+            detail=f"File type {file_ext} not supported. Allowed: {allowed_extensions}"
         )
     
     # Save uploaded file temporarily
@@ -66,35 +66,41 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)):
     
     try:
         with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+            content = await file.read()
+            buffer.write(content)
         
-        # Transcribe the audio
-        result = transcribe_audio(file_path)
+        print(f"File saved to: {file_path}")
         
-        # Clean up - delete the uploaded file
+        # Transcribe audio
+        transcription_result = transcribe_audio_realtime(file_path)
+        
+        print(f"Transcription result: {transcription_result[:100]}...")
+        
+        # Extract medical entities from transcription
+        entities_result = extract_medical_entities(transcription_result)
+        
+        print(f"Entity extraction: Found {entities_result['entity_count']} entities")
+        
+        # Clean up: delete the uploaded file
         os.remove(file_path)
+        print(f"Cleaned up file: {file_path}")
         
-        if result["success"]:
-            return {
-                "success": True,
-                "filename": file.filename,
-                "transcription": result["text"],
-                "language": result["language"],
-                "duration_seconds": result["duration"]
-            }
-        else:
-            raise HTTPException(status_code=500, detail=result["error"])
-    
+        # Return combined results
+        return {
+            "success": True,
+            "filename": file.filename,
+            "transcription": transcription_result,
+            "entities": entities_result["entities"],
+            "entity_count": entities_result["entity_count"]
+        }
+        
     except Exception as e:
-        # Clean up file if it exists
+        # Clean up file even if there's an error
         if os.path.exists(file_path):
             os.remove(file_path)
         
-        # Print the full error to console
-        import traceback
-        print("=" * 50)
-        print("TRANSCRIPTION ERROR:")
-        print(traceback.format_exc())
-        print("=" * 50)
+        print("\n" + "=" * 50)
+        print(f"ERROR in transcribe endpoint: {str(e)}")
+        print("=" * 50 + "\n")
         
         raise HTTPException(status_code=500, detail=str(e))
