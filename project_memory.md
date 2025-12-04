@@ -44,8 +44,12 @@
 - ffmpeg - Audio file handling
 - Whisper base model (140MB, downloaded once)
 
+**AI/ML Libraries:**
+- scispacy (v0.6.2) - Medical entity extraction
+- spaCy - NLP framework
+- en_core_sci_sm (v0.5.4) - Biomedical NLP model
+
 **Future/Planned:**
-- scispacy - Medical entity extraction (in progress)
 - React + TypeScript - Frontend (not started)
 - PostgreSQL - Database (not started)
 - WebSocket - Real-time communication (not started)
@@ -62,6 +66,7 @@ mediscribe-ai/
 │   ├── transcription.py         # Whisper transcription logic
 │   ├── requirements.txt         # Python dependencies
 │   └── uploads/                 # Temporary folder for uploaded audio files
+│   ├── entity_extraction.py     # Medical entity extraction with scispacy
 └── frontend/                     # React app (placeholder, not built yet)
 ```
 
@@ -107,6 +112,25 @@ mediscribe-ai/
 - OpenAI API requires payment method (student doesn't want to provide)
 - Hugging Face Inference API kept changing/breaking (Error 410)
 - Local solution is permanent, never breaks, works offline
+
+#### `/backend/entity_extraction.py`
+**Purpose:** Extracts medical entities from transcribed text using scispacy
+
+**Key Components:**
+- Loads en_core_sci_sm model on startup
+- `extract_medical_entities(text)` - Main extraction function
+- Identifies medical terms: diseases, medications, symptoms, procedures
+
+**Important Details:**
+- Uses scispacy biomedical model trained on scientific literature
+- Returns structured dict with: entities list, entity_count, labels, positions
+- Each entity includes: text, label, start position, end position
+- Runs locally, no API calls needed
+
+**Model Behavior:**
+- Small model (100MB) identifies medical terminology
+- Labels entities as "ENTITY" (generic medical term)
+- Finds terms like: chest pain, hypertension, aspirin, vitals, etc.
 
 #### `/backend/requirements.txt`
 **Current Dependencies:**
@@ -208,6 +232,12 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
    - **Reason:** Modern, async support, automatic API docs (/docs endpoint)
    - **Benefit:** Built-in Swagger UI for testing
 
+5. **scispacy Installation Strategy:**
+   - **Issue:** Python 3.12 incompatibility with thinc (compilation errors)
+   - **Solution:** Used --prefer-binary flag to install pre-compiled wheels
+   - **Model Version:** en_core_sci_sm v0.5.4 (matches scispacy v0.6.2)
+   - **Why This Works:** Avoids C++ compilation, uses pre-built binaries
+
 ### Naming Conventions
 
 - **Files:** lowercase with underscores (transcription.py, main.py)
@@ -249,7 +279,7 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 
 ## 5. Current Progress Snapshot
 
-### What Was Completed (Days 1-2)
+### What Was Completed (Days 1-3)
 
 **Day 1 Accomplishments:**
 - ✅ Created GitHub repository (mediscribe-ai)
@@ -267,6 +297,16 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 - ✅ Built working transcription endpoint
 - ✅ Successfully transcribed test audio file
 - ✅ Committed working transcription system to GitHub
+
+**Day 3 Accomplishments:**
+- ✅ Resolved scispacy installation issues (Python 3.12 compatibility)
+- ✅ Installed scispacy v0.6.2 with --prefer-binary flag
+- ✅ Downloaded en_core_sci_sm v0.5.4 medical model (100MB)
+- ✅ Created entity_extraction.py module
+- ✅ Integrated entity extraction with transcription API
+- ✅ Tested end-to-end: audio → transcription → entity extraction
+- ✅ Updated requirements.txt with new dependencies
+- ✅ Committed Day 3 progress to GitHub
 
 ### Components Modified
 
@@ -288,6 +328,8 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 4. **Transcription:** ✅ Local Whisper successfully transcribes audio
 5. **Error Handling:** ✅ Detailed error messages in terminal
 6. **File Cleanup:** ✅ Temporary files deleted after processing
+7. **Medical Entity Extraction:** ✅ scispacy identifies medical terms
+8. **Integrated Pipeline:** ✅ Audio → Transcription → Entities in single API call
 
 **Test Case That Works:**
 - Upload `test.mp3` (generated from text-to-speech)
@@ -315,26 +357,30 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 
 ## 6. Outstanding Tasks / TODO List
 
-### Immediate Next Steps (Day 3 - IN PROGRESS)
+### Immediate Next Steps (Day 4)
 
-1. **Medical Entity Extraction:**
-   - Install scispacy and medical model (currently installing)
-   - Create `entity_extraction.py` module
-   - Extract: conditions, medications, symptoms, procedures, body parts
-   - Return structured entities with positions in text
+1. **Improve Entity Categorization:**
+   - Current: All entities labeled as "ENTITY"
+   - Goal: Categorize into symptoms, medications, conditions, procedures
+   - Approach: Add post-processing logic or use entity linking
 
-2. **Test Entity Extraction:**
-   - Use existing transcription output
-   - Identify medical terms
-   - Return JSON with entity types and text spans
+2. **Test with More Audio Files:**
+   - Create 5-10 diverse medical scenarios
+   - Test accuracy across different accents/speeds
+   - Document which terms are reliably detected
+
+3. **Begin SOAP Note Generation:**
+   - Design SOAP note template structure
+   - Map entities to SOAP sections (Subjective, Objective, Assessment, Plan)
 
 ### Week 1-2 Goals (Foundation Phase)
 
 - [x] Set up development environment
 - [x] Basic audio recording + transcription
 - [x] Simple API with real-time display
-- [ ] Add entity extraction
+- [x] Add entity extraction
 - [ ] Create basic frontend (React) to display results
+- [ ] Test with diverse medical scenarios
 
 ### Week 3-5 Goals (Core AI Phase)
 
@@ -527,15 +573,17 @@ When this project is complete, the student should be able to say:
 
 ## Project Status Summary
 
-**Overall Progress:** ~15% complete (2 of 12 weeks)
+**Overall Progress:** ~20% complete (3 of 12 weeks)
 
 **What's Solid:**
 - Backend foundation
 - Audio transcription pipeline
+- Medical entity extraction
+- Integrated API workflow
 - Development workflow
 
 **What's Next:**
-- Medical entity extraction
+- Improve entity categorization
 - SOAP note generation
 - Frontend development
 
@@ -545,5 +593,5 @@ When this project is complete, the student should be able to say:
 
 ---
 
-*Last Updated: December 1, 2025 - End of Day 2*
-*Next Session: Day 3 - Medical Entity Extraction*
+*Last Updated: December 4, 2025 - End of Day 3*
+*Next Session: Day 4 - Entity Categorization & SOAP Notes*
