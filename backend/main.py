@@ -5,6 +5,7 @@ import shutil
 from transcription import transcribe_audio
 from entity_extraction import extract_medical_entities
 from transcription import transcribe_audio_realtime
+from soap_generator import generate_soap_note, format_soap_note_text
 
 # Create the FastAPI application
 app = FastAPI(
@@ -80,9 +81,19 @@ async def transcribe_audio(file: UploadFile = File(...)):
         # Extract medical entities from transcription
         entities_result = extract_medical_entities(transcription_result)
         
-        # Updated: use total_entities instead of entity_count
+                # Updated: use total_entities instead of entity_count
         print(f"Entity extraction: Found {entities_result['total_entities']} entities")
         print(f"Categorized: {entities_result['category_counts']}")
+        
+        # Generate SOAP note from categorized entities
+        soap_note = generate_soap_note(
+            transcription_result,
+            entities_result['categorized']
+        )
+        
+        # Format SOAP note as text for easy reading
+        soap_text = format_soap_note_text(soap_note)
+        print("\n" + soap_text)
         
         # Clean up: delete the uploaded file
         os.remove(file_path)
@@ -98,7 +109,9 @@ async def transcribe_audio(file: UploadFile = File(...)):
                 "breakdown": entities_result["category_counts"],
                 "categorized": entities_result["categorized"],
                 "all_entities": entities_result["entities"]
-            }
+            },
+            "soap_note": soap_note,
+            "soap_note_text": soap_text
         }
         
     except Exception as e:
