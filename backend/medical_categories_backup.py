@@ -501,23 +501,10 @@ def categorize_entities(entities):
         "unknown": []
     }
     
-    # Map categories to their dictionary keys
-    category_map = {
-        "symptom": "symptoms",
-        "medication": "medications",
-        "condition": "conditions",
-        "procedure": "procedures",
-        "anatomical": "anatomical",
-        "modifier": "modifiers",
-        "clinical_term": "clinical_terms",
-        "unknown": "unknown"
-    }
-    
     for entity in entities:
         category = categorize_entity(entity['text'])
         entity['category'] = category
-        dict_key = category_map.get(category, "unknown")
-        categorized[dict_key].append(entity)
+        categorized[f"{category}s" if category != "unknown" else category].append(entity)
     
     # Count entities in each category
     counts = {

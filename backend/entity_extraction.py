@@ -1,6 +1,6 @@
 import spacy
 from typing import Dict, List
-from medical_categories import categorize_entities, categorize_entity, SYMPTOMS, MEDICATIONS, CONDITIONS, PROCEDURES
+from medical_categories import categorize_entities, categorize_entity, SYMPTOMS, MEDICATIONS, CONDITIONS, PROCEDURES, ANATOMICAL_TERMS, CLINICAL_MODIFIERS
 
 # Load the medical model (this happens once when the module is imported)
 print("Loading scispacy medical model...")
@@ -21,8 +21,8 @@ def is_valid_medical_term(text):
     """
     text_lower = text.lower()
     
-    # Check all medical dictionaries
-    all_terms = SYMPTOMS | MEDICATIONS | CONDITIONS | PROCEDURES
+    # Check all medical dictionaries (including new ones from Day 6)
+    all_terms = SYMPTOMS | MEDICATIONS | CONDITIONS | PROCEDURES | ANATOMICAL_TERMS | CLINICAL_MODIFIERS
     
     # Exact match
     if text_lower in all_terms:
@@ -49,8 +49,8 @@ def is_exact_medical_term(text):
     """
     text_lower = text.lower().strip()
     
-    # Check all medical dictionaries for EXACT match only
-    all_terms = SYMPTOMS | MEDICATIONS | CONDITIONS | PROCEDURES
+    # Check all medical dictionaries for EXACT match only (including new ones from Day 6)
+    all_terms = SYMPTOMS | MEDICATIONS | CONDITIONS | PROCEDURES | ANATOMICAL_TERMS | CLINICAL_MODIFIERS
     
     return text_lower in all_terms
 
@@ -106,7 +106,7 @@ def merge_adjacent_entities_dynamic(entities, original_text):
                     merged_category = categorize_entity(merged_text)
                     
                     # Only merge if it's a meaningful medical category
-                    if merged_category in ['symptom', 'medication', 'condition', 'procedure']:
+                    if merged_category in ['symptom', 'medication', 'condition', 'procedure', 'anatomical', 'modifier']:
                         merged_entity = {
                             'text': merged_text,
                             'label': current['label'],
@@ -127,6 +127,7 @@ def merge_adjacent_entities_dynamic(entities, original_text):
 def extract_medical_entities(text):
     """
     Extract and categorize medical entities from text using scispacy.
+    Now supports anatomical terms and clinical modifiers (Day 6 update).
     
     Args:
         text (str): The transcribed medical text
@@ -161,21 +162,31 @@ def extract_medical_entities(text):
             print(f"After dynamic merging: {len(entities)} entities")
         
         # Now categorize the merged entities
-        categorized = categorize_entities(entities)
+        categorization_result = categorize_entities(entities)
         
-        # Count entities by category
+        # Extract categorized entities and counts from the result
+        categorized = categorization_result.get("categorized", {})
+        counts = categorization_result.get("counts", {})
+        
+        # Build category counts dictionary (with new categories from Day 6)
         category_counts = {
-            "symptoms": len(categorized["symptoms"]),
-            "medications": len(categorized["medications"]),
-            "conditions": len(categorized["conditions"]),
-            "procedures": len(categorized["procedures"]),
-            "clinical_terms": len(categorized["clinical_terms"]),
-            "unknown": len(categorized["unknown"])
+            "symptoms": counts.get("symptoms", 0),
+            "medications": counts.get("medications", 0),
+            "conditions": counts.get("conditions", 0),
+            "procedures": counts.get("procedures", 0),
+            "anatomical": counts.get("anatomical", 0),
+            "modifiers": counts.get("modifiers", 0),
+            "clinical_terms": counts.get("clinical_terms", 0),
+            "unknown": counts.get("unknown", 0)
         }
         
         print("\nEntity breakdown:")
         for category, count in category_counts.items():
-            print(f"  {category}: {count}")
+            if count > 0:  # Only print categories with entities
+                print(f"  {category}: {count}")
+        
+        print(f"Entity extraction: Found {len(entities)} entities")
+        print(f"Categorized: {category_counts}")
         
         return {
             "success": True,
@@ -201,8 +212,8 @@ def extract_medical_entities(text):
 
 # Test function to verify it works
 if __name__ == "__main__":
-    # Test with medical text containing compound terms
-    test_text = "Patient is a 45-year-old male presenting with chest pain and shortness of breath. History of hypertension. Taking aspirin daily."
+    # Test with medical text containing compound terms and anatomical terms
+    test_text = "Patient is a 45-year-old male presenting with chest pain and shortness of breath. History of hypertension. Taking aspirin daily. Pain radiates to left arm."
     
     print("\nTesting entity extraction...")
     print("=" * 50)

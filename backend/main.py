@@ -75,6 +75,19 @@ async def transcribe_audio(file: UploadFile = File(...)):
         
         # Transcribe audio
         transcription_result = transcribe_audio_realtime(file_path)
+
+        # # === NEW CODE: Apply spell correction ===
+        # from spell_correction import correct_medical_spelling
+
+        # corrected_text, corrections_log = correct_medical_spelling(
+        #     transcription_result, 
+        #     threshold=85, 
+        #     verbose=True
+        # )
+
+        # # Use corrected text for entity extraction
+        # transcription_result = corrected_text
+        # === END NEW CODE ===
         
         print(f"Transcription result: {transcription_result[:100]}...")
         
