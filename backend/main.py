@@ -1,4 +1,5 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Response
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
@@ -136,4 +137,26 @@ async def transcribe_audio(file: UploadFile = File(...)):
         print(f"ERROR in transcribe endpoint: {str(e)}")
         print("=" * 50 + "\n")
         
+        raise HTTPException(status_code=500, detail=str(e))
+
+class DownloadRequest(BaseModel):
+    content: str
+    filename: str = "soap_note.txt"
+
+# Download SOAP note endpoint
+@app.post("/api/download")
+async def download_soap_note(request: DownloadRequest):
+    """
+    Endpoint to download the SOAP note as a text file.
+    It takes the content and returns it as a downloadable file.
+    """
+    try:
+        return Response(
+            content=request.content,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f"attachment; filename={request.filename}"
+            }
+        )
+    except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Upload, FileAudio, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import { Upload, FileAudio, Loader2, CheckCircle, AlertCircle, Download } from 'lucide-react';
 
 function App() {
   // State management - this is our app's memory
@@ -7,6 +7,7 @@ function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Handle file selection
   const handleFileChange = (event) => {
@@ -57,6 +58,49 @@ function App() {
       console.error('Error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Handle SOAP note download
+  const handleDownload = async () => {
+    if (!result || !result.soap_note_text) return;
+
+    setIsDownloading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          content: result.soap_note_text,
+          filename: `SOAP_Note_${new Date().toISOString().split('T')[0]}.txt`
+        }),
+      });
+
+      if (!response.ok) throw new Error('Download failed');
+
+      // Process the response as a blob (binary data)
+      const blob = await response.blob();
+      
+      // Create a temporary URL for the blob
+      const url = window.URL.createObjectURL(blob);
+      
+      // Create a hidden link and click it to trigger download
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SOAP_Note_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (err) {
+      console.error('Download error:', err);
+      setError('Failed to download SOAP note');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -202,7 +246,21 @@ function App() {
 
             {/* SOAP Note */}
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">SOAP Note</h2>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">SOAP Note</h2>
+                <button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition-colors disabled:opacity-50"
+                >
+                  {isDownloading ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  Download .txt
+                </button>
+              </div>
               
               {/* Subjective */}
               <div className="mb-6">

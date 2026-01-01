@@ -1675,3 +1675,30 @@ When this project is complete, the student should be able to say:
 *Next Session: Day 8 - Add Download Feature & Test All Scenarios*
 *Current Status: 50% complete, ahead of schedule*
 *System Status: Backend fully functional with 700+ medical terms, 70% categorization accuracy. Frontend complete with React, Tailwind CSS, full API integration. End-to-end pipeline working flawlessly.*
+---
+
+## Day 8: SOAP Note Download Feature & Scenario Testing
+
+### Accomplishments
+- **Backend Download API**: Implemented a new `POST /api/download` endpoint in `main.py` that converts SOAP note text into a downloadable `.txt` file.
+- **Frontend Download Integration**: Added a "Download .txt" button to the React UI in `App.jsx` with a professional loading state.
+- **Blob Handling**: Implemented client-side blob processing to trigger browser-native download dialogs.
+- **Scenario Verification**: Verified that the medical dictionary covers all terms for the 5 core testing scenarios (Cardiac, Respiratory, GI, Orthopedic, General).
+
+### Technical Concepts Explained
+**1. API Responses for Files:**
+Instead of returning JSON, the download endpoint returns a `Response` with a `Content-Disposition` header. This header tells the browser to treat the incoming data as a file attachment rather than displaying it in the window.
+
+**2. JavaScript Blobs:**
+A "Blob" (Binary Large Object) represents raw data. In the frontend, we convert the API response into a Blob so the browser can generate a temporary local URL for it, allowing the user to "download" data that was just generated.
+
+### Updated File Structure
+- `backend/main.py`: Added `DownloadRequest` model and `/api/download` endpoint.
+- `frontend/src/App.jsx`: Added `handleDownload` function and download button UI.
+
+### Current Status
+- **Progress**: Day 8 Complete.
+- **Next Steps**: Day 9 - Refactor frontend into smaller components for better maintainability.
+- **Timeline**: Still ahead of schedule.
+
+*Last Updated: January 1, 2026 - End of Day 8*
