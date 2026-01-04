@@ -114,25 +114,22 @@ mediscribe-ai/
 │   │   ├── versions/           # Migration files (NEW)
 │   │   └── env.py              # Alembic config (NEW)
 │   └── uploads/                 # Temporary audio files
-└── frontend/                     # React TypeScript app (NEW)
-    ├── package.json             # NPM dependencies (NEW)
-    ├── vite.config.ts           # Vite configuration (NEW)
-    ├── tsconfig.json            # TypeScript config (NEW)
-    ├── tailwind.config.js       # Tailwind config (NEW)
-    ├── index.html               # Entry HTML (NEW)
-    └── src/                     # Source code (NEW)
-        ├── App.tsx              # Main React component (NEW)
-        ├── main.tsx             # React entry point (NEW)
-        ├── pages/               # Page components (NEW)
-        │   ├── Login.tsx
-        │   ├── Register.tsx
-        │   ├── Dashboard.tsx
-        │   └── Transcribe.tsx
-        ├── components/          # Reusable components (NEW)
-        │   ├── AudioUpload.tsx
-        │   ├── TranscriptionDisplay.tsx
-        │   ├── EntityHighlight.tsx
-        │   └── SOAPNoteView.tsx
+└── frontend/                     # React TypeScript app
+    ├── package.json             # NPM dependencies
+    ├── vite.config.ts           # Vite configuration
+    ├── tsconfig.json            # TypeScript config
+    ├── tailwind.config.js       # Tailwind config
+    ├── postcss.config.js        # PostCSS config
+    ├── index.html               # Entry HTML
+    └── src/                     # Source code
+        ├── App.jsx              # Main React component (refactored to 90 lines)
+        ├── main.jsx             # React entry point
+        ├── index.css            # Global styles
+        └── components/          # Reusable components (NEW)
+            ├── FileUpload.jsx
+            ├── TranscriptionDisplay.jsx
+            ├── EntityList.jsx
+            └── SOAPNoteView.jsx
         ├── services/            # API services (NEW)
         │   ├── api.ts
         │   ├── auth.ts
@@ -225,6 +222,120 @@ const [error, setError] = useState(null);              // Error messages
 - Loading spinner during API call
 - Error messages displayed in red alert box
 - Results appear only after successful processing
+
+#### `/frontend/src/components/FileUpload.jsx` (NEW - Week 6)
+**Purpose:** Handles audio file selection and upload UI
+
+**Key Components:**
+- Local state for selected audio file
+- File type validation (MP3, WAV, M4A, WebM, OGG, FLAC)
+- Drag-and-drop visual interface
+- Transcribe button with loading state
+
+**Props:**
+- `onTranscribe`: Callback function when user clicks transcribe
+- `isLoading`: Boolean to disable UI during processing
+
+**Important Details:**
+- Validates file types before accepting
+- Shows selected filename in UI
+- Disables input during processing
+- Uses Lucide icons (Upload, FileAudio, Loader2)
+
+#### `/frontend/src/components/TranscriptionDisplay.jsx` (NEW - Week 6)
+**Purpose:** Displays the transcribed text from audio
+
+**Key Components:**
+- White card with gray background for text
+- Preserves whitespace and line breaks
+
+**Props:**
+- `transcription`: String containing transcribed text
+
+**Important Details:**
+- Returns null if no transcription (conditional rendering)
+- Uses `whitespace-pre-wrap` for proper text formatting
+- Simple, focused component (20 lines)
+
+#### `/frontend/src/components/EntityList.jsx` (NEW - Week 6)
+**Purpose:** Displays color-coded medical entities organized by category
+
+**Key Components:**
+- Summary statistics section (total and breakdown by category)
+- Entity badges grouped by category
+- Color mapping function for visual categorization
+
+**Props:**
+- `entities`: Object with `total`, `breakdown`, and `categorized` fields
+
+**Important Details:**
+- 8 color schemes for different categories
+- Dynamic category display names
+- Filters out empty categories
+- Grid layout for entity badges
+- Responsive design (2-4 columns)
+
+**Color Mapping:**
+- Symptoms → Red (bg-red-100 text-red-800)
+- Medications → Blue (bg-blue-100 text-blue-800)
+- Conditions → Purple (bg-purple-100 text-purple-800)
+- Procedures → Green (bg-green-100 text-green-800)
+- Anatomical → Yellow (bg-yellow-100 text-yellow-800)
+- Modifiers → Pink (bg-pink-100 text-pink-800)
+- Clinical Terms → Gray (bg-gray-100 text-gray-800)
+- Unknown → Orange (bg-orange-100 text-orange-800)
+
+#### `/frontend/src/components/SOAPNoteView.jsx` (NEW - Week 6)
+**Purpose:** Displays formatted SOAP note with download functionality
+
+**Key Components:**
+- Four colored sections (Subjective, Objective, Assessment, Plan)
+- Download button to export as text file
+- Timestamp display
+- Dynamic content rendering
+
+**Props:**
+- `soapNote`: Object with `subjective`, `objective`, `assessment`, `plan`, `generated_at`
+
+**Features:**
+- **Download Functionality:** Exports SOAP note as `.txt` file
+- **Filename Format:** `soap-note-YYYY-MM-DDTHH-MM-SS.txt`
+- **Text Formatting:** Professional layout with section headers and separators
+- **Browser API:** Uses Blob, URL.createObjectURL, and anchor element for download
+
+**Important Details:**
+- Handles both string and object content types
+- Renders arrays as bullet lists
+- Color-coded section headers (blue/green/yellow/purple)
+- Clean memory management (URL.revokeObjectURL)
+- Green download button with icon
+
+#### `/frontend/src/App.jsx` (UPDATED - Week 6)
+**Purpose:** Main orchestrator component (refactored from 300+ to 90 lines)
+
+**Key Changes:**
+- Moved upload UI to FileUpload component
+- Moved display logic to separate components
+- Added `handleClearResults()` function
+- Imported X icon from lucide-react
+- Clear Results button in success message
+
+**New Features:**
+- **Clear Results:** Button to reset state without page refresh
+- Better separation of concerns
+- Cleaner state management
+- Component composition pattern
+
+**State Variables:** (unchanged)
+```javascript
+const [isLoading, setIsLoading] = useState(false);
+const [result, setResult] = useState(null);
+const [error, setError] = useState(null);
+```
+
+**Functions:**
+- `handleTranscribe(audioFile)` - Sends file to API, processes response
+- `handleClearResults()` - Resets result and error state (NEW)
 
 #### `/frontend/src/index.css` (NEW - Day 7)
 **Purpose:** Global styles and Tailwind CSS directives
@@ -701,11 +812,16 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 
 ## 5. Current Progress Snapshot
 
-### What Was Completed (Days 1-7)
+### What Was Completed (Days 1-7 + Week 6 Session 1)
 
-**[Days 1-6 accomplishments remain the same...]**
+**Week 1 (Days 1-5) - COMPLETE:**
+- ✅ Day 1: Project setup, basic FastAPI server
+- ✅ Day 2: Local Whisper integration, audio transcription
+- ✅ Day 3: scispacy integration, medical entity extraction
+- ✅ Day 4: Entity categorization, SOAP note generation
+- ✅ Day 5: Smart entity merging, 520+ term dictionary expansion
 
-**Day 7 Accomplishments (NEW - FRONTEND DEVELOPMENT):**
+**Day 7 - Frontend Foundation - COMPLETE:**
 - ✅ Set up React project with Vite (npm create vite)
 - ✅ Installed Tailwind CSS v3.4.0 (after fixing v4 compatibility issue)
 - ✅ Configured Tailwind (tailwind.config.js, postcss.config.js)
@@ -726,7 +842,6 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 - ✅ Achieved professional UI suitable for portfolio screenshots
 - ✅ Fixed Tailwind installation issues (v4 → v3 downgrade)
 - ✅ Resolved PostCSS configuration errors
-- ✅ Ready to commit Day 7 progress to GitHub
 
 **Day 7 Learning Outcomes:**
 - Student learned React fundamentals (components, state, hooks)
@@ -735,10 +850,32 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 - Student debugged npm package version issues
 - Student saw full-stack application working end-to-end
 
+**Week 6 Session 1 - Component Architecture & Features - COMPLETE:**
+- ✅ Refactored App.jsx from 300+ lines into 5 focused components
+- ✅ Created FileUpload component (95 lines) - handles audio file selection and upload UI
+- ✅ Created TranscriptionDisplay component (20 lines) - displays transcribed text
+- ✅ Created EntityList component (90 lines) - color-coded entity badges by category
+- ✅ Created SOAPNoteView component (170 lines) - formatted SOAP note display
+- ✅ Updated App.jsx to orchestrator role (90 lines) - manages state and API calls
+- ✅ Added download SOAP note feature (.txt export with timestamp)
+- ✅ Added clear results button (reset without page refresh)
+- ✅ Improved code maintainability and architecture
+- ✅ Applied Single Responsibility Principle to components
+- ✅ Implemented Browser File API for downloads
+- ✅ Fixed React import issues (useState hook)
+- ✅ Tested end-to-end functionality with all features
+
+**Week 6 Session 1 Learning Outcomes:**
+- Student learned component-based architecture
+- Student understood props and component communication
+- Student implemented browser download functionality
+- Student applied clean code principles and refactoring
+- Student experienced production-quality code organization
+
 ### Components Status
 
 **Backend (Completed):**
-- `backend/main.py` ✅ Complete, working (includes CORS in Day 7)
+- `backend/main.py` ✅ Complete, working (includes CORS)
 - `backend/transcription.py` ✅ Complete, working
 - `backend/entity_extraction.py` ✅ Complete, working
 - `backend/medical_categories.py` ✅ Complete, working (700+ terms)
@@ -746,17 +883,21 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 - `backend/spell_correction.py` ✅ Built but disabled
 - `backend/requirements.txt` ✅ Complete
 
-**Frontend (NEW - Day 7):**
-- `frontend/src/App.jsx` ✅ Complete, working
-- `frontend/src/index.css` ✅ Complete, working
-- `frontend/src/main.jsx` ✅ Complete (default Vite setup)
-- `frontend/tailwind.config.js` ✅ Complete, working
-- `frontend/postcss.config.js` ✅ Complete, working
+**Frontend (Week 6 Progress - 70% Complete):**
+- `frontend/src/App.jsx` ✅ Refactored to 90 lines (orchestrator)
+- `frontend/src/components/FileUpload.jsx` ✅ Complete (NEW - Week 6)
+- `frontend/src/components/TranscriptionDisplay.jsx` ✅ Complete (NEW - Week 6)
+- `frontend/src/components/EntityList.jsx` ✅ Complete (NEW - Week 6)
+- `frontend/src/components/SOAPNoteView.jsx` ✅ Complete with download (NEW - Week 6)
+- `frontend/src/index.css` ✅ Complete
+- `frontend/src/main.jsx` ✅ Complete
+- `frontend/tailwind.config.js` ✅ Complete
+- `frontend/postcss.config.js` ✅ Complete
 - `frontend/package.json` ✅ Complete with all dependencies
-- `frontend/index.html` ✅ Complete (default Vite setup)
+- `frontend/index.html` ✅ Complete
 
 **Files Needing Update:**
-- README.md (needs updating with Day 7 frontend features)
+- README.md (needs updating with Week 6 features)
 
 ### What Is Working
 
@@ -771,7 +912,7 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 8. ✅ SOAP Note Generation
 9. ✅ CORS enabled for frontend
 
-**Frontend (NEW - Day 7, All working):**
+**Frontend Core Features (Day 7):**
 10. ✅ React dev server running on port 5173
 11. ✅ File upload interface with drag-and-drop visual
 12. ✅ File validation (checks extensions before upload)
@@ -787,52 +928,76 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 22. ✅ Professional styling (gradient background, shadows, clean design)
 23. ✅ Hot reload during development (Vite feature)
 
-**End-to-End Integration (Day 7 Success):**
+**Frontend Enhanced Features (Week 6 Session 1):**
+24. ✅ Component-based architecture (5 reusable components)
+25. ✅ Download SOAP note as .txt file
+26. ✅ Clear results functionality (reset without refresh)
+27. ✅ Timestamp-based filename generation
+28. ✅ Professional text formatting for downloads
+29. ✅ Browser File API integration
+30. ✅ Clean separation of concerns
+31. ✅ Props-based component communication
+32. ✅ Single Responsibility Principle applied
+
+**End-to-End Integration (Fully Working):**
 - User uploads audio file in React UI
-- Frontend sends to backend API
-- Backend transcribes, extracts entities, generates SOAP note
-- Frontend receives response and displays all results
+- Frontend sends to backend API via FormData
+- Backend transcribes with Whisper, extracts entities with scispacy, generates SOAP note
+- Frontend receives response and displays all results in organized components
+- User can download SOAP note as formatted text file
+- User can clear results and upload another file
 - Complete workflow taking ~5-10 seconds total
 - Beautiful, professional interface suitable for portfolio
 
-**Test Case (Day 7 Verification):**
+**Test Case (Verified with All Features):**
 - **File:** scenario1_cardiology.mp3 (0.27 MB)
 - **Total Entities:** 35
 - **Breakdown:** 7 symptoms, 2 medications, 2 conditions, 5 procedures, 2 anatomical, 3 modifiers, 7 clinical terms, 7 unknown
-- **UI Display:** All categories showing with correct colors
-- **SOAP Note:** All 4 sections properly formatted
+- **UI Display:** All categories showing with correct colors in EntityList component
+- **SOAP Note:** All 4 sections properly formatted in SOAPNoteView component
+- **Download:** Successfully exports as `soap-note-YYYY-MM-DDTHH-MM-SS.txt`
+- **Clear Results:** Successfully resets state and allows new upload
 - **Performance:** ~3-5 seconds processing time
 - **User Experience:** Smooth, professional, no errors
 
 ### What Is Not Working / Not Started
 
 **Not Started:**
-- Database integration
+- Database integration (Week 9-10)
 - Real-time WebSocket streaming
 - ICD-10 coding
 - Drug interaction checking
 - FHIR compliance
 - HIPAA architecture documentation
-- User authentication
-- Multi-user support
-- Download SOAP note as PDF/text (planned for Week 6-7)
-- Edit SOAP note in UI (planned for Week 6-7)
-- Audio playback in frontend (planned for Week 6-7)
+- User authentication (Week 11)
+- Multi-user support (Week 11)
+- Edit SOAP note in UI (planned for Week 7-8)
+- Audio playback in frontend (planned for Week 7-8)
 - Multiple file upload (planned for Week 8-9)
+- Processing time display (planned for Week 7)
+- File size display (planned for Week 7)
+- Dark mode toggle (planned for Week 7)
 
 **Known Limitations:**
-- Frontend is single component (not split into smaller components yet)
-- No persistent storage (results lost on page refresh)
-- No dark mode toggle
+- ~~Frontend is single component (not split into smaller components yet)~~ **RESOLVED in Week 6**
+- No persistent storage (results lost on page refresh) - planned for Week 9-10
+- No dark mode toggle - planned for Week 7
 - SOAP notes are template-based (not AI-generated prose)
 - Objective section uses placeholder text when no vitals mentioned
 - No medication dosage extraction (dosages marked as "unknown")
 - No temporal information extraction (time phrases marked as "unknown")
 - Spell correction disabled (some Whisper errors remain)
 - 30% entities marked "unknown" (but many are numbers/dosages, not medical terms)
+- No testing with scenarios 2-5 yet (remaining Week 6 task)
+
+**7. Component Architecture (RESOLVED - Week 6):**
+- ~~**Issue:** Entire frontend in one 300+ line component~~
+- ~~**Impact:** Harder to maintain and test~~
+- **Resolution:** Refactored into 5 focused components
+- **Result:** Better maintainability, reusability, and code organization
 
 **Known Issues:**
-- None currently - both backend and frontend are stable
+- None currently - both backend and frontend are stable and fully functional
 
 ---
 
@@ -851,24 +1016,29 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 
 ### **Phase 2: Frontend Development (Weeks 6-8) - NEXT PRIORITY**
 
-**Week 6: React Setup + Basic UI**
-- [ ] Create React + TypeScript project with Vite
-- [ ] Set up Tailwind CSS
-- [ ] Create project structure (pages, components, services)
-- [ ] Build audio upload component
-- [ ] Connect to backend API
-- [ ] Test file upload functionality
+**Week 6: React Setup + Basic UI - 70% COMPLETE**
+- [x] Create React + TypeScript project with Vite
+- [x] Set up Tailwind CSS
+- [x] Create project structure (components folder)
+- [x] Build audio upload component
+- [x] Connect to backend API
+- [x] Test file upload functionality
+- [x] Refactor into reusable components (NEW)
+- [x] Add download SOAP note feature (NEW)
+- [x] Add clear results button (NEW)
+- [ ] Test scenarios 2-5 through frontend
+- [ ] Take screenshots for portfolio
+- [ ] Document test results
 
 **Week 7: Display & Visualization**
-- [ ] Display transcription results in real-time
-- [ ] Show categorized entities with color coding:
-  - Symptoms (red)
-  - Medications (blue)
-  - Conditions (orange)
-  - Procedures (green)
-- [ ] Display SOAP note in formatted view
-- [ ] Add loading states and error handling
-- [ ] Add progress indicators
+- [ ] Add processing time display
+- [ ] Add file size display
+- [ ] Improve mobile responsiveness
+- [ ] Add smooth transitions/animations
+- [ ] Add tooltips for entity categories
+- [ ] Enhanced entity highlighting
+- [ ] Audio playback controls (optional)
+- [ ] Dark mode toggle (optional)
 
 **Week 8: User Experience Polish**
 - [ ] Make SOAP notes editable
@@ -2022,7 +2192,17 @@ When this project is complete, the student should be able to say:
 - ✅ Day 4: Entity categorization, SOAP note generation
 - ✅ Day 5: Smart entity merging, 520+ term dictionary expansion
 
-**Current Status:** Backend 90% complete, 35% overall progress
+**Day 7 - Frontend Foundation - COMPLETE:**
+- ✅ React + Vite + Tailwind CSS setup
+- ✅ Single-component frontend with full functionality
+
+**Week 6 Session 1 - Component Architecture - COMPLETE:**
+- ✅ Component refactoring (5 components created)
+- ✅ Download SOAP note feature
+- ✅ Clear results button
+- ✅ Improved code architecture
+
+**Current Status:** Frontend 70% complete, 55% overall progress
 
 ---
 
@@ -2140,13 +2320,15 @@ When this project is complete, the student should be able to say:
 
 ### Progress Tracking
 
-**Current:** Week 5 complete (35% of original plan, 25% of revised plan)
+**Current:** Week 6 - 70% complete (55% of overall project)
 
-**Next Milestone:** Week 6 - React frontend setup (Post-GRE)
+**Next Milestone:** Complete Week 6 testing (scenarios 2-5)
 
 **Key Milestones Ahead:**
-- ✅ Week 5: Backend complete with 520+ terms
-- 🎯 Week 8: Frontend functional
+- ✅ Week 5: Backend complete with 700+ terms
+- 🔄 Week 6: Frontend component architecture (70% done)
+- 🎯 Week 7: Frontend polish and UI enhancements
+- 🎯 Week 8: Complete frontend phase
 - 🎯 Week 10: Database integrated
 - 🎯 Week 11: Authentication working
 - 🎯 Week 12: Docker containers ready
@@ -2221,13 +2403,15 @@ When this project is complete, the student should be able to say:
 5. SQL & Data Engineering: 40%
 
 **After Revised Scope (Week 20):**
-1. Python + ML Frameworks: 80% (unchanged)
-2. MLOps & Deployment: **70%** ⬆️ (Docker, CI/CD, monitoring)
-3. NLP: 85% (unchanged, still core strength)
-4. Cloud Platforms: **70%** ⬆️ (Railway, Vercel, PostgreSQL)
-5. SQL & Data Engineering: **75%** ⬆️ (PostgreSQL, SQLAlchemy, migrations)
+**After Week 6 Session 1:**
+1. Python + ML Frameworks: 80%
+2. MLOps & Deployment: 30%
+3. NLP: 85%
+4. Cloud Platforms: 10%
+5. SQL & Data Engineering: 40%
+6. **React + Modern Frontend: 70%** ⬆️ (NEW - component architecture, state management, browser APIs)
 
-**Overall Skill Coverage:** 49% → **76%** (27% improvement)
+**Overall Skill Coverage:** 49% → **58%** ⬆️
 
 ### Project Positioning
 
