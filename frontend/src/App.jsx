@@ -1,333 +1,129 @@
 import { useState } from 'react';
-import { Upload, FileAudio, Loader2, CheckCircle, AlertCircle, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle } from 'lucide-react';
+import FileUpload from './components/FileUpload';
+import TranscriptionDisplay from './components/TranscriptionDisplay';
+import EntityList from './components/EntityList';
+import SOAPNoteView from './components/SOAPNoteView';
 
+/**
+ * Main App Component
+ * Orchestrates the medical transcription workflow
+ * Manages state and API communication
+ */
 function App() {
-  // State management - this is our app's memory
-  const [audioFile, setAudioFile] = useState(null);
+  // State management
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [isDownloading, setIsDownloading] = useState(false);
 
-  // Handle file selection
-  const handleFileChange = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Validate file type
-      const validTypes = ['audio/mpeg', 'audio/wav', 'audio/m4a', 'audio/webm', 'audio/ogg', 'audio/flac'];
-      if (validTypes.includes(file.type) || file.name.match(/\.(mp3|wav|m4a|webm|ogg|flac)$/i)) {
-        setAudioFile(file);
-        setError(null);
-      } else {
-        setError('Please select a valid audio file (MP3, WAV, M4A, WebM, OGG, or FLAC)');
-        setAudioFile(null);
-      }
-    }
-  };
-
-  // Handle transcription
-  const handleTranscribe = async () => {
-    if (!audioFile) {
-      setError('Please select an audio file first');
-      return;
-    }
-
+  /**
+   * Handle transcription process
+   * Sends audio file to backend API and processes response
+   */
+  const handleTranscribe = async (audioFile) => {
     setIsLoading(true);
     setError(null);
     setResult(null);
 
     try {
-      // Create form data
+      // Prepare form data with audio file
       const formData = new FormData();
       formData.append('file', audioFile);
 
-      // Call your backend API
+      // Call backend API
       const response = await fetch('http://localhost:8000/api/transcribe', {
         method: 'POST',
         body: formData,
       });
 
       if (!response.ok) {
-        throw new Error(`Server error: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      setResult(data);
+
+      // Transform backend response to match component expectations
+      const transformedResult = {
+        transcription: data.transcription,
+        entities: {
+          total: data.entities?.total_entities || 0,
+          breakdown: data.entities?.category_counts || {},
+          categorized: data.entities?.categorized || {},
+        },
+        soap_note: data.soap_note,
+      };
+
+      setResult(transformedResult);
     } catch (err) {
-      setError(err.message || 'Failed to process audio. Make sure your backend server is running.');
-      console.error('Error:', err);
+      console.error('Transcription error:', err);
+      setError(err.message || 'An error occurred during transcription');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Handle SOAP note download
-  const handleDownload = async () => {
-    if (!result || !result.soap_note_text) return;
-
-    setIsDownloading(true);
-    try {
-      const response = await fetch('http://localhost:8000/api/download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: result.soap_note_text,
-          filename: `SOAP_Note_${new Date().toISOString().split('T')[0]}.txt`
-        }),
-      });
-
-      if (!response.ok) throw new Error('Download failed');
-
-      // Process the response as a blob (binary data)
-      const blob = await response.blob();
-      
-      // Create a temporary URL for the blob
-      const url = window.URL.createObjectURL(blob);
-      
-      // Create a hidden link and click it to trigger download
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `SOAP_Note_${new Date().toISOString().split('T')[0]}.txt`;
-      document.body.appendChild(a);
-      a.click();
-      
-      // Clean up
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      console.error('Download error:', err);
-      setError('Failed to download SOAP note');
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Get category color
-  const getCategoryColor = (category) => {
-    const colors = {
-      symptoms: 'bg-red-100 text-red-800 border-red-300',
-      medications: 'bg-blue-100 text-blue-800 border-blue-300',
-      conditions: 'bg-purple-100 text-purple-800 border-purple-300',
-      procedures: 'bg-green-100 text-green-800 border-green-300',
-      clinical_terms: 'bg-gray-100 text-gray-800 border-gray-300',
-      diagnostic_tests: 'bg-yellow-100 text-yellow-800 border-yellow-300',
-      unknown: 'bg-orange-100 text-orange-800 border-orange-300'
-    };
-    return colors[category] || colors.unknown;
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">MediScribe AI</h1>
-          <p className="text-gray-600">AI-Powered Medical Transcription System</p>
+        <div className="text-center mb-12">
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">
+            MediScribe AI
+          </h1>
+          <p className="text-lg text-gray-600">
+            Medical Transcription & Clinical Documentation System
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            Powered by OpenAI Whisper & Medical NLP
+          </p>
         </div>
 
-        {/* Upload Card */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
-          <div className="mb-4">
-            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-indigo-500 hover:bg-gray-50 transition-colors">
-              <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                {audioFile ? (
-                  <>
-                    <FileAudio className="w-10 h-10 text-indigo-500 mb-2" />
-                    <p className="text-sm text-gray-600">{audioFile.name}</p>
-                    <p className="text-xs text-gray-400">{(audioFile.size / 1024 / 1024).toFixed(2)} MB</p>
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-10 h-10 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-600">Click to upload audio file</p>
-                    <p className="text-xs text-gray-400">MP3, WAV, M4A, WebM, OGG, or FLAC</p>
-                  </>
-                )}
-              </div>
-              <input
-                type="file"
-                className="hidden"
-                accept=".mp3,.wav,.m4a,.webm,.ogg,.flac,audio/*"
-                onChange={handleFileChange}
-              />
-            </label>
-          </div>
+        {/* File Upload Section */}
+        <FileUpload onTranscribe={handleTranscribe} isLoading={isLoading} />
 
-          <button
-            onClick={handleTranscribe}
-            disabled={!audioFile || isLoading}
-            className="w-full bg-indigo-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
-          >
-            {isLoading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Processing Audio...
-              </>
-            ) : (
-              'Transcribe & Analyze'
-            )}
-          </button>
-
-          {/* Error Display */}
-          {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-red-700 text-sm">{error}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Results Display */}
-        {result && (
-          <div className="space-y-6">
-            {/* Success Message */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <p className="text-green-700 font-medium">Audio processed successfully!</p>
-            </div>
-
-            {/* Transcription */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Transcription</h2>
-              <p className="text-gray-700 leading-relaxed">{result.transcription}</p>
-            </div>
-
-            {/* Medical Entities */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Medical Entities Detected</h2>
-              
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-2xl font-bold text-gray-900">{result.entities.total}</p>
-                  <p className="text-sm text-gray-600">Total Entities</p>
-                </div>
-                <div className="bg-red-50 rounded-lg p-4">
-                  <p className="text-2xl font-bold text-red-600">{result.entities.breakdown.symptoms}</p>
-                  <p className="text-sm text-gray-600">Symptoms</p>
-                </div>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  <p className="text-2xl font-bold text-purple-600">{result.entities.breakdown.conditions}</p>
-                  <p className="text-sm text-gray-600">Conditions</p>
-                </div>
-                <div className="bg-blue-50 rounded-lg p-4">
-                  <p className="text-2xl font-bold text-blue-600">{result.entities.breakdown.medications}</p>
-                  <p className="text-sm text-gray-600">Medications</p>
-                </div>
-              </div>
-
-              {/* Categorized Entities */}
-              <div className="space-y-4">
-                {Object.entries(result.entities.categorized).map(([category, entities]) => {
-                  if (entities.length === 0) return null;
-                  
-                  return (
-                    <div key={category}>
-                      <h3 className="text-lg font-semibold text-gray-800 mb-2 capitalize">
-                        {category.replace('_', ' ')} ({entities.length})
-                      </h3>
-                      <div className="flex flex-wrap gap-2">
-                        {entities.map((entity, index) => (
-                          <span
-                            key={index}
-                            className={`px-3 py-1 rounded-full text-sm font-medium border ${getCategoryColor(category)}`}
-                          >
-                            {entity.text}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* SOAP Note */}
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">SOAP Note</h2>
-                <button
-                  onClick={handleDownload}
-                  disabled={isDownloading}
-                  className="flex items-center gap-2 bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg font-medium hover:bg-indigo-200 transition-colors disabled:opacity-50"
-                >
-                  {isDownloading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                  Download .txt
-                </button>
-              </div>
-              
-              {/* Subjective */}
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-indigo-700 mb-2">Subjective</h3>
-                <div className="bg-indigo-50 rounded-lg p-4">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Chief Complaint:</p>
-                  <p className="text-gray-800 mb-3">{result.soap_note.subjective.chief_complaint}</p>
-                  
-                  {result.soap_note.subjective.symptoms.length > 0 && (
-                    <>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Symptoms:</p>
-                      <ul className="list-disc list-inside text-gray-800 space-y-1">
-                        {result.soap_note.subjective.symptoms.map((symptom, index) => (
-                          <li key={index}>{symptom}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Objective */}
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-green-700 mb-2">Objective</h3>
-                <div className="bg-green-50 rounded-lg p-4">
-                  {result.soap_note.objective.findings.map((finding, index) => (
-                    <p key={index} className="text-gray-800">{finding}</p>
-                  ))}
-                </div>
-              </div>
-
-              {/* Assessment */}
-              <div className="mb-6">
-                <h3 className="text-xl font-semibold text-purple-700 mb-2">Assessment</h3>
-                <div className="bg-purple-50 rounded-lg p-4">
-                  {result.soap_note.assessment.primary_diagnosis && (
-                    <>
-                      <p className="text-sm font-medium text-gray-700 mb-1">Primary Diagnosis:</p>
-                      <p className="text-gray-800 mb-3">{result.soap_note.assessment.primary_diagnosis}</p>
-                    </>
-                  )}
-                  
-                  {result.soap_note.assessment.all_conditions.length > 0 && (
-                    <>
-                      <p className="text-sm font-medium text-gray-700 mb-1">All Conditions:</p>
-                      <ul className="list-disc list-inside text-gray-800 space-y-1">
-                        {result.soap_note.assessment.all_conditions.map((condition, index) => (
-                          <li key={index}>{condition}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Plan */}
-              <div>
-                <h3 className="text-xl font-semibold text-blue-700 mb-2">Plan</h3>
-                <div className="bg-blue-50 rounded-lg p-4">
-                  {result.soap_note.plan.treatment_plan.map((item, index) => (
-                    <p key={index} className="text-gray-800 mb-2">{item}</p>
-                  ))}
-                </div>
-              </div>
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-8 rounded-lg flex items-start gap-3">
+            <AlertCircle className="w-6 h-6 text-red-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-red-800">Error</h3>
+              <p className="text-red-700">{error}</p>
             </div>
           </div>
         )}
+
+        {/* Success Message */}
+        {result && !error && (
+          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-8 rounded-lg flex items-start gap-3">
+            <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <h3 className="font-semibold text-green-800">Success!</h3>
+              <p className="text-green-700">
+                Audio transcribed and analyzed successfully
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Results Display - Only show if we have results */}
+        {result && (
+          <>
+            {/* Transcription */}
+            <TranscriptionDisplay transcription={result.transcription} />
+
+            {/* Medical Entities */}
+            <EntityList entities={result.entities} />
+
+            {/* SOAP Note */}
+            <SOAPNoteView soapNote={result.soap_note} />
+          </>
+        )}
+
+        {/* Footer */}
+        <div className="mt-12 text-center text-sm text-gray-500">
+          <p>MediScribe AI - Educational Portfolio Project</p>
+          <p className="mt-1">Built with FastAPI, Whisper, scispacy, React & Tailwind CSS</p>
+        </div>
       </div>
     </div>
   );
