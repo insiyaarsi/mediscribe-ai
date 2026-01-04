@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, X } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import TranscriptionDisplay from './components/TranscriptionDisplay';
 import EntityList from './components/EntityList';
@@ -62,6 +62,14 @@ function App() {
     }
   };
 
+  /**
+   * Clear all results and reset to initial state
+   */
+  const handleClearResults = () => {
+    setResult(null);
+    setError(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto">
@@ -94,13 +102,25 @@ function App() {
 
         {/* Success Message */}
         {result && !error && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-8 rounded-lg flex items-start gap-3">
-            <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
-            <div>
-              <h3 className="font-semibold text-green-800">Success!</h3>
-              <p className="text-green-700">
-                Audio transcribed and analyzed successfully
-              </p>
+          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-8 rounded-lg">
+            <div className="flex items-start justify-between">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-green-800">Success!</h3>
+                  <p className="text-green-700">
+                    Audio transcribed and analyzed successfully
+                  </p>
+                </div>
+              </div>
+              {/* Clear Results Button */}
+              <button
+                onClick={handleClearResults}
+                className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition-colors"
+              >
+                <X className="w-4 h-4" />
+                Clear Results
+              </button>
             </div>
           </div>
         )}
