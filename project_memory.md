@@ -4,26 +4,36 @@
 
 **Project Name:** MediScribe AI
 
-**Description:** A real-time AI-powered medical transcription system that converts doctor-patient conversations into structured clinical documentation. The system uses speech-to-text AI to transcribe audio, extracts medical entities (symptoms, medications, diagnoses), and generates formatted SOAP notes, reducing physician documentation time from 8 minutes to 3 minutes per patient.
+**Description:** A production-ready medical transcription system that converts doctor-patient conversations into structured clinical documentation. Uses speech-to-text AI to transcribe audio, extracts medical entities (symptoms, medications, diagnoses), generates formatted SOAP notes, and provides secure multi-user access with database persistence. Reduces physician documentation time from 8 minutes to 3 minutes per patient.
 
 **Primary Goals:**
-- Build a complete portfolio project for Canadian university applications (McGill, Concordia, Windsor, Carleton)
+- Build a complete portfolio project for Canadian university applications (McGill, Concordia, Windsor, Carleton) AND job applications
 - Demonstrate advanced AI/ML skills with real-world healthcare application
-- Create a fully functional demo that can be deployed and showcased
+- Create a fully functional, deployed demo accessible via public URL
+- Demonstrate production engineering skills (Docker, PostgreSQL, authentication, deployment)
 - Keep the entire project 100% FREE (no paid APIs or services)
-- Timeline: 12-week development cycle
+- **REVISED Timeline:** 20-week development cycle (expanded from original 12 weeks)
 
 **Student Context:**
 - Working 15-20 hours/week on project
 - Most free on Mondays
-- GRE exam COMPLETED on December 26th, 2025
+- **COMPLETED GRE exam on December 26th, 2025** ✅
 - In IST timezone
+- Preparing for university applications (deadlines starting Feb 2026)
 - GitHub username: insiyaarsi
 - Repository: https://github.com/insiyaarsi/mediscribe-ai
+
+**Timeline Revision:**
+- **Original Plan:** 12 weeks (basic demo)
+- **Revised Plan:** 20 weeks (production-ready system with database, auth, Docker, deployment)
+- **Reason for Extension:** Student wants to add PostgreSQL, authentication, Docker, and live deployment
+- **New Target Completion:** May 2026
 
 ---
 
 ## 2. Architecture Overview
+
+### Technologies Used
 
 ### Technologies Used
 
@@ -33,15 +43,29 @@
 - Python 3.12
 - Uvicorn - ASGI server
 - python-dotenv - Environment variable management
-- RapidFuzz - Fuzzy string matching for spell correction (currently disabled)
-- CORS middleware enabled for frontend integration
+- **SQLAlchemy** - ORM for database operations (NEW)
+- **Alembic** - Database migrations (NEW)
+- **python-jose** - JWT token generation (NEW)
+- **passlib + bcrypt** - Password hashing (NEW)
 
-**Frontend (NEW - Day 7):**
-- React 18 - Modern UI library
-- Vite - Fast build tool and dev server
-- Tailwind CSS v3.4.0 - Utility-first CSS framework
-- Lucide React - Icon library (professional icons, no emojis)
-- JavaScript (ES6+) - Using hooks and modern syntax
+**Database:**
+- **PostgreSQL** - Primary database for persistence (NEW)
+- Schema: users, transcriptions, medical_entities, soap_notes (NEW)
+
+**Authentication:**
+- **JWT (JSON Web Tokens)** - Stateless authentication (NEW)
+- **bcrypt** - Secure password hashing (NEW)
+- Role-based access control (NEW)
+
+**Containerization:**
+- **Docker** - Application containerization (NEW)
+- **docker-compose** - Multi-container orchestration (NEW)
+- Services: backend, postgres (NEW)
+
+**Deployment:**
+- **Railway** - Backend + database hosting (free tier) (NEW)
+- **Vercel** - Frontend hosting (free tier) (NEW)
+- **GitHub Actions** - CI/CD (optional, future) (NEW)
 
 **Development Environment:**
 - GitHub Codespaces (free 60 hours/month)
@@ -57,36 +81,64 @@
 - spaCy - NLP framework
 - en_core_sci_sm (v0.5.4) - Biomedical NLP model
 
+**Frontend:**
+- **React 18** + **TypeScript** - Modern UI framework (NEW)
+- **Vite** - Build tool (NEW)
+- **Tailwind CSS** - Styling (NEW)
+- **Lucide React** - Icon library (NEW)
+- **Axios** - HTTP client for API calls (NEW)
+
+
 ### File/Folder Structure
 
 ```
 mediscribe-ai/
-├── .env                          # Environment variables (API keys) - NOT committed to Git
-├── .gitignore                    # Git ignore file (includes .env)
+├── .env                          # Environment variables (NOT in Git)
+├── .gitignore                    # Git ignore file
 ├── README.md                     # Project documentation
+├── docker-compose.yml            # Multi-container orchestration (NEW)
 ├── backend/                      # Python FastAPI backend
-│   ├── main.py                  # Main API server with endpoints + CORS
-│   ├── transcription.py         # Whisper transcription logic
-│   ├── entity_extraction.py     # Medical entity extraction with scispacy + smart merging
-│   ├── medical_categories.py    # Medical term dictionaries (700+ terms!)
-│   ├── soap_generator.py        # SOAP note generation from entities
-│   ├── spell_correction.py      # Spell correction module (DISABLED)
+│   ├── Dockerfile               # Backend container config (NEW)
+│   ├── main.py                  # Main API server
+│   ├── transcription.py         # Whisper transcription
+│   ├── entity_extraction.py     # Medical entity extraction + merging
+│   ├── medical_categories.py    # Medical term dictionaries (520+ terms)
+│   ├── soap_generator.py        # SOAP note generation
+│   ├── database.py              # SQLAlchemy database setup (NEW)
+│   ├── models.py                # Database models (NEW)
+│   ├── schemas.py               # Pydantic request/response schemas (NEW)
+│   ├── auth.py                  # JWT authentication logic (NEW)
+│   ├── crud.py                  # Database CRUD operations (NEW)
 │   ├── requirements.txt         # Python dependencies
-│   └── uploads/                 # Temporary folder for uploaded audio files
-└── frontend/                     # React app (NEW - Day 7)
-    ├── node_modules/            # Dependencies (auto-generated)
-    ├── public/                  # Static files
-    ├── src/                     # Source code
-    │   ├── App.jsx             # Main React component with all UI logic
-    │   ├── App.css             # Component styles (minimal, unused)
-    │   ├── main.jsx            # React entry point
-    │   └── index.css           # Global styles with Tailwind directives
-    ├── package.json             # Node dependencies
-    ├── package-lock.json        # Dependency lock file
-    ├── tailwind.config.js       # Tailwind CSS configuration
-    ├── postcss.config.js        # PostCSS configuration for Tailwind
-    ├── vite.config.js           # Vite build configuration
-    └── index.html               # HTML entry point
+│   ├── alembic/                 # Database migrations (NEW)
+│   │   ├── versions/           # Migration files (NEW)
+│   │   └── env.py              # Alembic config (NEW)
+│   └── uploads/                 # Temporary audio files
+└── frontend/                     # React TypeScript app (NEW)
+    ├── package.json             # NPM dependencies (NEW)
+    ├── vite.config.ts           # Vite configuration (NEW)
+    ├── tsconfig.json            # TypeScript config (NEW)
+    ├── tailwind.config.js       # Tailwind config (NEW)
+    ├── index.html               # Entry HTML (NEW)
+    └── src/                     # Source code (NEW)
+        ├── App.tsx              # Main React component (NEW)
+        ├── main.tsx             # React entry point (NEW)
+        ├── pages/               # Page components (NEW)
+        │   ├── Login.tsx
+        │   ├── Register.tsx
+        │   ├── Dashboard.tsx
+        │   └── Transcribe.tsx
+        ├── components/          # Reusable components (NEW)
+        │   ├── AudioUpload.tsx
+        │   ├── TranscriptionDisplay.tsx
+        │   ├── EntityHighlight.tsx
+        │   └── SOAPNoteView.tsx
+        ├── services/            # API services (NEW)
+        │   ├── api.ts
+        │   ├── auth.ts
+        │   └── transcription.ts
+        └── types/               # TypeScript types (NEW)
+            └── index.ts
 ```
 
 ### Description of Major Files
@@ -280,22 +332,32 @@ export default {
 
 #### `/backend/requirements.txt`
 **Current Dependencies:**
-```
+
+# Core Framework
 fastapi==0.104.1
 uvicorn==0.24.0
 python-multipart==0.0.6
 websockets==12.0
 python-dotenv==1.0.0
+
+# AI/ML
 openai-whisper
 scispacy==0.6.2
 spacy
-rapidfuzz==3.6.1
-```
+
+# Database & ORM (NEW)
+sqlalchemy==2.0.23
+psycopg2-binary==2.9.9
+alembic==1.13.0
+
+# Authentication (NEW)
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
 
 **Installation Notes:**
 - scispacy installed with `--prefer-binary` flag for Python 3.12 compatibility
 - Medical model: `python -m spacy download en_core_sci_sm`
-- RapidFuzz added in Day 6 (spell correction, currently disabled)
+- All dependencies support Python 3.12
 
 #### `/.env`
 **Purpose:** Stores environment variables (API keys, secrets)
@@ -307,6 +369,134 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 ```
 
 **Important:** This file is in `.gitignore` and NEVER committed to GitHub
+
+#### `/backend/database.py` (NEW)
+**Purpose:** SQLAlchemy database configuration and session management
+
+**Key Components:**
+- Database URL configuration from environment
+- SQLAlchemy engine creation
+- SessionLocal factory for database sessions
+- Base class for declarative models
+
+**Important Details:**
+- Uses connection pooling for performance
+- Handles database connection lifecycle
+- Provides dependency for FastAPI route injection
+
+#### `/backend/models.py` (NEW)
+**Purpose:** SQLAlchemy ORM models for database tables
+
+**Models:**
+- **User:** id, email, password_hash, created_at
+- **Transcription:** id, user_id, audio_filename, transcription_text, language, created_at
+- **MedicalEntity:** id, transcription_id, entity_text, entity_category, start_position, end_position
+- **SOAPNote:** id, transcription_id, subjective, objective, assessment, plan, created_at
+
+**Relationships:**
+- User → Transcriptions (one-to-many)
+- Transcription → MedicalEntities (one-to-many)
+- Transcription → SOAPNote (one-to-one)
+
+#### `/backend/schemas.py` (NEW)
+**Purpose:** Pydantic models for request/response validation
+
+**Schemas:**
+- **UserCreate:** email, password (for registration)
+- **UserLogin:** email, password (for authentication)
+- **Token:** access_token, token_type (JWT response)
+- **TranscriptionResponse:** transcription data + entities + SOAP note
+- **TranscriptionList:** list of user's transcriptions
+
+**Validation:**
+- Email format validation
+- Password strength requirements (min 8 characters)
+- Data type enforcement
+
+#### `/backend/auth.py` (NEW)
+**Purpose:** JWT authentication and password hashing
+
+**Key Functions:**
+- `create_access_token()` - Generate JWT tokens
+- `verify_password()` - Check password against hash
+- `get_password_hash()` - Hash passwords with bcrypt
+- `get_current_user()` - Extract user from JWT token
+
+**Security:**
+- JWT tokens expire after 24 hours
+- Passwords hashed with bcrypt (cost factor 12)
+- Tokens verified on every protected route
+
+#### `/backend/crud.py` (NEW)
+**Purpose:** Database CRUD (Create, Read, Update, Delete) operations
+
+**Functions:**
+- `create_user()` - Create new user account
+- `get_user_by_email()` - Find user for login
+- `create_transcription()` - Save transcription to database
+- `get_transcriptions()` - Retrieve user's transcriptions
+- `delete_transcription()` - Delete transcription by ID
+
+**Pattern:**
+- All functions take database session as first parameter
+- Returns model instances or None
+- Handles database errors gracefully
+
+#### `/backend/Dockerfile` (NEW)
+**Purpose:** Container configuration for backend application
+
+**Build Process:**
+1. Start from python:3.12-slim base image
+2. Install system dependencies (ffmpeg)
+3. Install Python dependencies
+4. Download ML models (Whisper, scispacy)
+5. Copy application code
+6. Expose port 8000
+7. Run uvicorn server
+
+**Optimization:**
+- Multi-stage build for smaller image size
+- Cached layers for faster rebuilds
+- Models downloaded at build time (not runtime)
+
+#### `/docker-compose.yml` (NEW)
+**Purpose:** Multi-container orchestration for local development
+
+**Services:**
+- **postgres:** PostgreSQL 15 database
+  - Port 5432 exposed
+  - Data persisted in named volume
+  - Environment variables for credentials
+  
+- **backend:** FastAPI application
+  - Port 8000 exposed
+  - Depends on postgres service
+  - Environment variables for database connection
+  - Volume mount for code hot-reloading
+
+**Networks:**
+- Services communicate on shared Docker network
+- External access via exposed ports
+
+#### `/frontend/` React Application (NEW)
+**Purpose:** User interface for MediScribe
+
+**Key Features:**
+- **Authentication Pages:** Login, Register
+- **Dashboard:** View past transcriptions
+- **Transcribe Page:** Upload audio, view results
+- **Entity Highlighting:** Color-coded medical terms
+- **SOAP Note Viewer:** Formatted clinical documentation
+
+**State Management:**
+- JWT token stored in localStorage
+- User state managed with React Context
+- API calls authenticated with token
+
+**Routing:**
+- React Router for navigation
+- Protected routes require authentication
+- Redirect to login if not authenticated
 
 ---
 
@@ -648,119 +838,357 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
 
 ## 6. Outstanding Tasks / TODO List
 
-### Immediate Next Steps (Day 8)
+### REVISED 20-WEEK TIMELINE
 
-**Option A: Enhance Frontend Features (Recommended)**
-1. Add "Download SOAP Note" button (exports as .txt file)
-2. Add "Clear Results" button to reset UI
-3. Add processing time display
-4. Test with all 5 existing audio files
-5. Take screenshots for portfolio
+**COMPLETED: Weeks 1-2 (Days 1-5)**
+- [x] Backend foundation (FastAPI, Whisper, scispacy)
+- [x] Entity extraction with smart merging
+- [x] 520+ term medical dictionary
+- [x] SOAP note generation
+- [x] 100% categorization accuracy
 
-**Option B: Refactor Frontend (Code Quality)**
-1. Split App.jsx into smaller components:
-   - FileUpload component
-   - TranscriptionDisplay component
-   - EntityList component
-   - SoapNoteDisplay component
-2. Create reusable EntityBadge component
-3. Move getCategoryColor to separate utils file
-4. Add PropTypes for type checking
+---
 
-**Option C: Add More Test Scenarios**
-1. Test with scenarios 2-5 (respiratory, endocrinology, mental health, multi-system)
-2. Test with scenarios 6-10 (dermatology, neurology, GI, nephrology, infectious disease)
-3. Document results in memory file
-4. Take screenshots of each scenario
+### **Phase 2: Frontend Development (Weeks 6-8) - NEXT PRIORITY**
 
-**Option D: Improve Backend Features**
-1. Extract medication dosages (regex patterns)
-2. Extract severity indicators (mild, moderate, severe)
-3. Extract temporal information (onset, duration)
-4. Improve unknown entity analysis
+**Week 6: React Setup + Basic UI**
+- [ ] Create React + TypeScript project with Vite
+- [ ] Set up Tailwind CSS
+- [ ] Create project structure (pages, components, services)
+- [ ] Build audio upload component
+- [ ] Connect to backend API
+- [ ] Test file upload functionality
 
-### Week 1-2 Goals (Foundation Phase) - UPDATED
+**Week 7: Display & Visualization**
+- [ ] Display transcription results in real-time
+- [ ] Show categorized entities with color coding:
+  - Symptoms (red)
+  - Medications (blue)
+  - Conditions (orange)
+  - Procedures (green)
+- [ ] Display SOAP note in formatted view
+- [ ] Add loading states and error handling
+- [ ] Add progress indicators
 
-- [x] Set up development environment ✅ Day 1
-- [x] Basic audio recording + transcription ✅ Day 2
-- [x] Simple API with real-time display ✅ Day 1-2
-- [x] Add entity extraction ✅ Day 3
-- [x] Entity categorization with 70% accuracy ✅ Day 4-6
-- [x] Smart entity merging (dynamic, dictionary-based) ✅ Day 5
-- [x] Medical dictionary expansion (700+ terms) ✅ Day 5-6
-- [x] SOAP note generation ✅ Day 4
-- [x] Test with diverse medical scenarios ✅ Day 6 (5 scenarios)
-- [x] Create basic frontend (React) to display results ✅ Day 7
+**Week 8: User Experience Polish**
+- [ ] Make SOAP notes editable
+- [ ] Add download functionality (PDF/text export)
+- [ ] Implement responsive design (mobile-friendly)
+- [ ] Add keyboard shortcuts
+- [ ] UI/UX refinements and testing
 
-### Week 3-5 Goals (Core AI Phase)
+**Deliverable:** Fully functional frontend communicating with backend
 
-- [x] SOAP note generation (template-based)
-- [x] Entity extraction accuracy at 70%
-- [x] Smart compound term merging
-- [x] Build React frontend ✅ Day 7
-- [ ] Add download SOAP note feature
-- [ ] Add confidence scores to entities
-- [ ] ICD-10 code suggestion (top-3 predictions)
-- [ ] Extract medication dosages
-- [ ] Extract temporal information
-- [ ] Extract severity indicators
+---
 
-### Week 6-7 Goals (Integration Phase)
+### **Phase 3: Database Layer (Weeks 9-10) - NEW**
 
-- [x] Build React frontend ✅ Day 7
-- [x] File upload and processing ✅ Day 7
-- [x] Entity highlighting in UI (color-coded) ✅ Day 7
-- [x] SOAP note display ✅ Day 7
-- [ ] Real-time transcription display (streaming)
-- [ ] SOAP note editing capability
-- [ ] Download SOAP note as PDF/text
-- [ ] Refactor into smaller components
-- [ ] Add more UI polish (animations, transitions)
+**Week 9: PostgreSQL Setup + Schema**
+- [ ] Install PostgreSQL locally in Codespaces
+- [ ] Create database `mediscribe_db`
+- [ ] Set up SQLAlchemy ORM
+- [ ] Create database models:
+  - User (id, email, password_hash, created_at)
+  - Transcription (id, user_id, filename, text, language, created_at)
+  - MedicalEntity (id, transcription_id, text, category, start_pos, end_pos)
+  - SOAPNote (id, transcription_id, subjective, objective, assessment, plan)
+- [ ] Set up Alembic for migrations
+- [ ] Create initial migration
+- [ ] Test database connection
 
-### Week 8-9 Goals (Advanced Features)
+**Week 10: Database Integration**
+- [ ] Create `database.py` (connection management)
+- [ ] Create `crud.py` (CRUD operations)
+- [ ] Update `main.py` to save transcriptions to DB
+- [ ] Update entity extraction to save entities to DB
+- [ ] Update SOAP generator to save notes to DB
+- [ ] Add new endpoints:
+  - `GET /api/transcriptions` - List user's transcriptions
+  - `GET /api/transcriptions/{id}` - Get specific transcription
+  - `DELETE /api/transcriptions/{id}` - Delete transcription
+- [ ] Test persistence across server restarts
 
-- [ ] Improve spell correction (better filtering, context-aware)
-- [ ] Drug interaction checking
-- [ ] Medical abbreviation expansion
-- [ ] Context-aware entity disambiguation
-- [ ] Multi-language support
-- [ ] Audio playback in UI
-- [ ] Multiple file upload
+**Deliverable:** All data persisted to PostgreSQL
 
-### Week 10-11 Goals (Production Ready)
+---
 
-- [ ] Performance optimization
-- [ ] Comprehensive testing (50+ scenarios)
-- [ ] HIPAA architecture documentation
-- [ ] Security best practices implementation
-- [ ] Rate limiting and error handling
-- [ ] Error boundary components in React
-- [ ] Loading skeleton components
+### **Phase 4: Authentication (Week 11) - NEW**
 
-### Week 12 Goals (Portfolio)
+**Week 11: JWT Authentication System**
 
-- [ ] Professional README with screenshots
-- [ ] Architecture diagrams
-- [ ] Demo video (2-3 minutes)
-- [ ] Technical blog post
-- [ ] Deploy live demo (optional - Vercel for frontend, Railway for backend)
+**Backend Tasks:**
+- [ ] Install python-jose, passlib, bcrypt
+- [ ] Create `auth.py` module:
+  - Password hashing functions
+  - JWT token generation
+  - Token verification
+  - Get current user from token
+- [ ] Create `schemas.py` (Pydantic models for validation)
+- [ ] Add authentication endpoints:
+  - `POST /api/auth/register` - User registration
+  - `POST /api/auth/login` - User login (returns JWT)
+  - `GET /api/auth/me` - Get current user info
+- [ ] Protect `/api/transcribe` with JWT middleware
+- [ ] Test authentication flow
 
-### Blockers
+**Frontend Tasks:**
+- [ ] Create Login page component
+- [ ] Create Register page component
+- [ ] Implement authentication service
+- [ ] Store JWT in localStorage
+- [ ] Add Authorization header to API calls
+- [ ] Implement logout functionality
+- [ ] Add route protection (redirect if not authenticated)
+- [ ] Test login/register/logout flow
+
+**Deliverable:** Secure multi-user system with authentication
+
+---
+
+### **Phase 5: Dockerization (Week 12) - NEW**
+
+**Week 12: Container Setup**
+- [ ] Create `backend/Dockerfile`:
+  - Python 3.12 base image
+  - Install system dependencies (ffmpeg)
+  - Install Python packages
+  - Download ML models at build time
+  - Copy application code
+  - Expose port 8000
+- [ ] Create `docker-compose.yml`:
+  - PostgreSQL service (port 5432)
+  - Backend service (port 8000)
+  - Network configuration
+  - Volume mounts for data persistence
+- [ ] Test local Docker build
+- [ ] Test `docker-compose up`
+- [ ] Verify all services work together
+- [ ] Document Docker setup in README
+- [ ] Create `.dockerignore` file
+
+**Deliverable:** Fully containerized application
+
+---
+
+### **Phase 6: Testing & Quality Assurance (Weeks 13-14)**
+
+**Week 13: Create Test Scenarios**
+- [ ] Create 20+ diverse medical test cases:
+  - 3 cardiology cases (chest pain, MI, arrhythmia)
+  - 3 respiratory cases (asthma, COPD, pneumonia)
+  - 3 endocrinology cases (diabetes, thyroid, metabolic)
+  - 3 mental health cases (depression, anxiety, PTSD)
+  - 3 orthopedic cases (fractures, arthritis, sprains)
+  - 3 GI cases (GERD, IBS, gastritis)
+  - 2 complex multi-system cases
+- [ ] Generate or record audio for each scenario
+- [ ] Test each through full pipeline
+- [ ] Document accuracy for each case
+- [ ] Create test results spreadsheet
+
+**Week 14: End-to-End Testing**
+- [ ] Test user registration flow
+- [ ] Test user login/logout
+- [ ] Test audio upload with authentication
+- [ ] Test transcription viewing/deletion
+- [ ] Test across different browsers (Chrome, Firefox, Safari)
+- [ ] Test mobile responsiveness
+- [ ] Test error handling (wrong password, invalid file, etc.)
+- [ ] Performance testing (multiple concurrent users)
+- [ ] Fix all discovered bugs
+- [ ] Create bug report document
+
+**Deliverable:** Comprehensive test suite + bug-free system
+
+---
+
+### **Phase 7: Deployment (Weeks 15-16) - NEW**
+
+**Week 15: Backend Deployment to Railway**
+- [ ] Create Railway account
+- [ ] Create new Railway project
+- [ ] Add PostgreSQL database plugin
+- [ ] Connect GitHub repository
+- [ ] Configure environment variables:
+  - DATABASE_URL (auto-configured)
+  - JWT_SECRET_KEY (generate secure key)
+  - WHISPER_MODEL_NAME
+- [ ] Deploy backend from GitHub
+- [ ] Run database migrations on production
+- [ ] Test deployed backend at Railway URL
+- [ ] Monitor logs for errors
+- [ ] Set up health check endpoint
+
+**Week 16: Frontend Deployment to Vercel**
+- [ ] Create Vercel account
+- [ ] Connect GitHub repository
+- [ ] Configure build settings:
+  - Build command: `npm run build`
+  - Output directory: `dist`
+  - Install command: `npm install`
+- [ ] Add environment variable: `VITE_API_URL` (Railway backend URL)
+- [ ] Deploy frontend
+- [ ] Test deployed frontend at Vercel URL
+- [ ] Configure custom domain (optional)
+- [ ] Test end-to-end: Vercel frontend → Railway backend
+- [ ] Fix any CORS issues
+- [ ] Update README with live demo URLs
+
+**Deliverable:** Live application at public URLs
+
+---
+
+### **Phase 8: User Testing (Week 17) - NEW**
+
+**Week 17: Real User Testing**
+
+**Recruit 5 Testers:**
+- [ ] Find 2 medical students (if possible)
+- [ ] Find 2 tech-savvy friends
+- [ ] Find 1 non-technical person
+
+**Testing Protocol:**
+- [ ] Create test accounts for each tester
+- [ ] Provide sample medical audio files
+- [ ] Ask testers to:
+  - Register/login
+  - Upload 2-3 audio files
+  - Review transcriptions
+  - Check entity categorization
+  - Read SOAP notes
+  - Rate accuracy and usability (Google Form)
+- [ ] Collect feedback via structured form
+- [ ] Document issues and suggestions
+
+**Analysis:**
+- [ ] Categorize feedback (bugs, UX issues, accuracy problems)
+- [ ] Prioritize issues (critical, important, nice-to-have)
+- [ ] Implement critical fixes
+- [ ] Create user testing report
+- [ ] Update documentation based on feedback
+
+**Deliverable:** User testing report + improvements implemented
+
+---
+
+### **Phase 9: Documentation & Portfolio (Weeks 18-19)**
+
+**Week 18: Professional Documentation**
+
+**Update README.md:**
+- [ ] Add project title and description
+- [ ] Add live demo links (Vercel + Railway)
+- [ ] Add feature list with icons
+- [ ] Add architecture diagram (draw.io or Excalidraw)
+- [ ] Add technical stack section
+- [ ] Add key achievements and metrics
+- [ ] Add local development instructions
+- [ ] Add Docker setup guide
+- [ ] Add deployment instructions
+- [ ] Add API documentation link (/docs)
+- [ ] Add screenshots/GIFs of working system
+- [ ] Add license (MIT)
+
+**Create Diagrams:**
+- [ ] System architecture diagram (frontend → backend → database)
+- [ ] Data flow diagram (audio → transcription → entities → SOAP)
+- [ ] Database schema diagram (tables and relationships)
+- [ ] Deployment architecture (Vercel + Railway)
+- [ ] Save diagrams as PNG/SVG in `/docs` folder
+
+**Week 19: Demo Video & Blog Post**
+
+**Demo Video (3-5 minutes):**
+- [ ] Script the video content
+- [ ] Record video demonstration:
+  - Introduction (30 sec): What is MediScribe?
+  - Live Demo (2 min):
+    - User registration/login
+    - Upload audio file
+    - Watch transcription in real-time
+    - Show entity categorization with colors
+    - Display SOAP note
+    - Show previous transcriptions
+  - Technical Overview (1 min):
+    - Architecture diagram
+    - Tech stack highlights
+    - Key features
+  - Results & Impact (30 sec):
+    - Accuracy metrics
+    - Performance stats
+    - Future enhancements
+  - Call to action: Live demo link
+- [ ] Edit video (add captions, transitions)
+- [ ] Upload to YouTube
+- [ ] Add video link to README
+
+**Technical Blog Post (optional):**
+- [ ] Title: "Building MediScribe AI: A Production Medical Transcription System"
+- [ ] Outline:
+  - Problem statement
+  - Technical architecture
+  - Challenges and solutions:
+    - Local Whisper vs API
+    - Smart entity merging algorithm
+    - Dictionary-driven categorization
+    - Database design
+    - Authentication implementation
+    - Deployment strategy
+  - Key learnings
+  - Future enhancements
+- [ ] Write 1500-2000 word article
+- [ ] Add code snippets and diagrams
+- [ ] Publish on Medium or Dev.to
+- [ ] Share on LinkedIn
+
+**Deliverable:** Complete portfolio materials (README, diagrams, video, blog)
+
+---
+
+### **Phase 10: Final Polish & Launch (Week 20)**
+
+**Week 20: Launch Preparation**
+- [ ] Final bug fixes from user testing
+- [ ] Performance optimization:
+  - Database query optimization
+  - API response time improvements
+  - Frontend loading time optimization
+- [ ] Security audit:
+  - Check JWT expiration
+  - Verify password hashing
+  - Test CORS configuration
+  - Check SQL injection protection
+  - Test file upload limits
+- [ ] Monitoring setup (optional):
+  - Set up Sentry for error tracking
+  - Add PostHog for analytics
+- [ ] Backup and disaster recovery:
+  - Document database backup strategy
+  - Test backup restoration
+- [ ] Final testing:
+  - Smoke testing on production
+  - Load testing (simulate 10 concurrent users)
+  - Security testing
+- [ ] Launch announcement:
+  - Update LinkedIn profile
+  - Share on Twitter/LinkedIn
+  - Add to portfolio website
+  - Send to university applications
+
+**🎉 MILESTONE: MediScribe AI is LIVE with public URL**
+
+---
+
+### Blockers & Considerations
 
 **Current:**
-- None - system is fully functional end-to-end
-
-**Resolved:**
-- ~~Tailwind CSS v4 compatibility~~ - Downgraded to v3.4.0 ✅
-- ~~PostCSS configuration errors~~ - Fixed with proper config ✅
-- ~~CORS blocking frontend requests~~ - Enabled in backend ✅
-- ~~React component form errors~~ - Switched to onClick handler ✅
+- None (GRE completed ✅)
 
 **Potential Future:**
-- Learning curve for advanced React patterns (Context API, custom hooks)
-- Deployment complexity (need free hosting solutions)
-- Medical dictionary maintenance (ongoing task)
-
+- University application deadlines (Feb-Mar 2026)
+- Learning curve for new technologies (Docker, PostgreSQL, React)
+- Deployment costs if exceeding free tiers
+- Time management with 15-20 hrs/week commitment
 ---
 
 ## 7. Instructions for Future Claude Sessions
@@ -1585,67 +2013,147 @@ When this project is complete, the student should be able to say:
 
 ## 14. Project Timeline & Milestones
 
-### Completed Milestones
+### Completed Milestones ✅
 
-**Week 1 (Days 1-7) - COMPLETED:**
+**Week 1 (Days 1-5) - COMPLETE:**
 - ✅ Day 1: Project setup, basic FastAPI server
 - ✅ Day 2: Local Whisper integration, audio transcription
 - ✅ Day 3: scispacy integration, medical entity extraction
 - ✅ Day 4: Entity categorization, SOAP note generation
-- ✅ Day 5: Smart entity merging, massive dictionary expansion (520+ terms)
-- ✅ Day 6: Spell correction (disabled), dictionary expansion to 700+ terms, tested 5 scenarios
-- ✅ Day 7: React frontend with Tailwind CSS, complete UI, CORS integration
+- ✅ Day 5: Smart entity merging, 520+ term dictionary expansion
 
-### Upcoming Milestones
+**Current Status:** Backend 90% complete, 35% overall progress
 
-**Week 2 (Days 8-14):**
-- Day 8: Add download SOAP note feature, test all 5 scenarios with frontend
-- Day 9: Refactor frontend into smaller components
-- Day 10: Add "Clear Results" button, processing time display
-- Day 11-12: Extract medication dosages and severity indicators
-- Day 13-14: Extract temporal information, improve SOAP note quality
+---
 
-**Week 3-4:**
-- ICD-10 code suggestions
-- Enhanced SOAP note logic
-- Comprehensive testing (20+ scenarios)
+### Revised Timeline (20 Weeks Total)
 
-**Week 5-6:**
-- Complete frontend polish
-- Add editing capabilities
-- Audio playback feature
-- Dark mode
+**Weeks 1-2:** Foundation (COMPLETE ✅)
 
-**Week 7-8:**
-- Advanced entity extraction
-- Drug interactions
-- Medical abbreviation expansion
+**Week 6-8:** Frontend Development
+- React + TypeScript setup
+- Audio upload UI
+- Transcription display
+- Entity highlighting
+- SOAP note viewer
+- Download functionality
 
-**Week 9-10:**
-- Database integration (optional)
-- Performance optimization
-- Security hardening
+**Week 9-10:** Database Layer (NEW)
+- PostgreSQL installation
+- SQLAlchemy models
+- Database migrations
+- CRUD operations
+- Persistence implementation
 
-**Week 11:**
-- Documentation and README
+**Week 11:** Authentication (NEW)
+- JWT implementation
+- User registration/login
+- Password hashing
+- Protected routes
+- Frontend auth integration
+
+**Week 12:** Dockerization (NEW)
+- Backend Dockerfile
+- docker-compose setup
+- Local container testing
+- Documentation
+
+**Week 13-14:** Testing & QA
+- 20+ test scenarios
+- End-to-end testing
+- Bug fixes
+- Performance testing
+
+**Week 15-16:** Deployment (NEW)
+- Railway backend deployment
+- Vercel frontend deployment
+- Environment configuration
+- Production testing
+
+**Week 17:** User Testing (NEW)
+- Recruit 5 testers
+- Structured feedback collection
+- Issue prioritization
+- Critical fixes
+
+**Week 18-19:** Documentation & Portfolio
+- Professional README
 - Architecture diagrams
-- Demo video preparation
+- Demo video (3-5 min)
+- Technical blog post (optional)
 
-**Week 12:**
-- Final polish
-- Deploy demo (optional)
-- Portfolio materials
+**Week 20:** Final Polish & Launch
+- Final bug fixes
+- Security audit
+- Performance optimization
+- Public launch
+
+---
 
 ### Timeline Adjustments
 
-**GRE Completed (Dec 26):**
-- No more timeline constraints!
-- Can work full 15-20 hours/week
+**GRE Status:** ✅ COMPLETED December 26, 2025
 
-**Ahead of Schedule:**
-- Currently at 50% completion (Day 7 of ~84 days)
-- Projected completion: Week 10 (2 weeks early)
+**Post-GRE Timeline:**
+- **Jan 2026 (Weeks 6-9):** Frontend + Database (4 weeks)
+- **Feb 2026 (Weeks 10-14):** Auth + Docker + Testing (5 weeks)
+- **Mar 2026 (Weeks 15-17):** Deployment + User Testing (3 weeks)
+- **Apr 2026 (Weeks 18-20):** Documentation + Launch (3 weeks)
 
+**Target Completion:** End of April 2026
+
+**University Applications:** Submit with project in progress (Feb-Mar), update with final version (Apr)
+
+---
+
+### Work Breakdown by Hours
+
+| Phase | Weeks | Hours | Tasks |
+|-------|-------|-------|-------|
+| Foundation | 1-2 | 40 | ✅ COMPLETE |
+| Frontend | 6-8 | 45-60 | React UI, API integration |
+| Database | 9-10 | 30-40 | PostgreSQL, SQLAlchemy, migrations |
+| Authentication | 11 | 15-20 | JWT, login/register |
+| Docker | 12 | 15-20 | Containers, compose |
+| Testing | 13-14 | 30-40 | Test scenarios, QA |
+| Deployment | 15-16 | 30-40 | Railway, Vercel, production |
+| User Testing | 17 | 15-20 | Feedback, fixes |
+| Documentation | 18-19 | 30-40 | README, video, diagrams |
+| Launch | 20 | 15-20 | Final polish |
+| **TOTAL** | **20 weeks** | **265-330 hrs** | **15-20 hrs/week** |
+
+---
+
+### Realistic Completion Timeline
+
+**With 20 hours/week:**
+- 330 hours / 20 hours per week = **16.5 weeks**
+- Target: **End of April 2026**
+
+**With 15 hours/week:**
+- 330 hours / 15 hours per week = **22 weeks**
+- Target: **Mid-May 2026**
+
+**Buffer:** Built-in 2-3 week buffer for unexpected delays, exam periods, or learning curve
+
+---
+
+### Progress Tracking
+
+**Current:** Week 5 complete (35% of original plan, 25% of revised plan)
+
+**Next Milestone:** Week 6 - React frontend setup (Post-GRE)
+
+**Key Milestones Ahead:**
+- ✅ Week 5: Backend complete with 520+ terms
+- 🎯 Week 8: Frontend functional
+- 🎯 Week 10: Database integrated
+- 🎯 Week 11: Authentication working
+- 🎯 Week 12: Docker containers ready
+- 🎯 Week 16: Live deployment
+- 🎯 Week 20: Public launch
+
+**On Track For:** May 2026 completion with 15-20 hrs/week commitment
 ---
 
 ## 15. Contact & Collaboration Info
@@ -1669,36 +2177,78 @@ When this project is complete, the student should be able to say:
 - No emojis in responses
 - Professional, educational tone
 
+
+## 16. Revised Project Goals & Success Criteria
+
+### Primary Goals (Unchanged)
+1. ✅ Strong portfolio piece for Canadian university applications
+2. ✅ Demonstrate AI/ML skills in healthcare domain
+3. ✅ Keep project 100% FREE
+
+### NEW Secondary Goals (Added Post-GRE)
+4. ✅ Demonstrate production engineering skills for job market
+5. ✅ Deploy live, publicly accessible demo
+6. ✅ Multi-user system with authentication
+7. ✅ Database persistence and data management
+8. ✅ Containerization with Docker
+9. ✅ Modern full-stack development (React + FastAPI)
+
+### Success Criteria
+
+**For University Applications:**
+- ✅ Working medical NLP pipeline (COMPLETE)
+- ✅ 520+ term medical dictionary (COMPLETE)
+- ✅ SOAP note generation (COMPLETE)
+- 🎯 Frontend demo (Week 6-8)
+- 🎯 Professional documentation (Week 18-19)
+- 🎯 Demo video (Week 19)
+
+**For Job Applications:**
+- 🎯 PostgreSQL database integration (Week 9-10)
+- 🎯 JWT authentication system (Week 11)
+- 🎯 Docker containerization (Week 12)
+- 🎯 Production deployment (Week 15-16)
+- 🎯 User testing with real feedback (Week 17)
+- 🎯 Comprehensive testing suite (Week 13-14)
+
+### Skills Demonstrated
+
+**Original Scope (Weeks 1-5):**
+1. Python + ML Frameworks: 80%
+2. MLOps & Deployment: 30%
+3. NLP: 85%
+4. Cloud Platforms: 10%
+5. SQL & Data Engineering: 40%
+
+**After Revised Scope (Week 20):**
+1. Python + ML Frameworks: 80% (unchanged)
+2. MLOps & Deployment: **70%** ⬆️ (Docker, CI/CD, monitoring)
+3. NLP: 85% (unchanged, still core strength)
+4. Cloud Platforms: **70%** ⬆️ (Railway, Vercel, PostgreSQL)
+5. SQL & Data Engineering: **75%** ⬆️ (PostgreSQL, SQLAlchemy, migrations)
+
+**Overall Skill Coverage:** 49% → **76%** (27% improvement)
+
+### Project Positioning
+
+**Original (12 weeks):**
+- Academic portfolio project
+- "Impressive student work"
+- Research-focused
+- Local demo only
+
+**Revised (20 weeks):**
+- Production-ready system
+- "Hireable engineering demonstration"
+- Industry-focused
+- Live public deployment
+
+**Both positions are valuable - this project now serves BOTH purposes.**
+
 ---
 
-*Last Updated: December 29, 2025 - End of Day 7*
-*Next Session: Day 8 - Add Download Feature & Test All Scenarios*
+*Last Updated: January 4, 2026 - Post-GRE, Revised Timeline*
+*Next Session: Week 6*
 *Current Status: 50% complete, ahead of schedule*
 *System Status: Backend fully functional with 700+ medical terms, 70% categorization accuracy. Frontend complete with React, Tailwind CSS, full API integration. End-to-end pipeline working flawlessly.*
 ---
-
-## Day 8: SOAP Note Download Feature & Scenario Testing
-
-### Accomplishments
-- **Backend Download API**: Implemented a new `POST /api/download` endpoint in `main.py` that converts SOAP note text into a downloadable `.txt` file.
-- **Frontend Download Integration**: Added a "Download .txt" button to the React UI in `App.jsx` with a professional loading state.
-- **Blob Handling**: Implemented client-side blob processing to trigger browser-native download dialogs.
-- **Scenario Verification**: Verified that the medical dictionary covers all terms for the 5 core testing scenarios (Cardiac, Respiratory, GI, Orthopedic, General).
-
-### Technical Concepts Explained
-**1. API Responses for Files:**
-Instead of returning JSON, the download endpoint returns a `Response` with a `Content-Disposition` header. This header tells the browser to treat the incoming data as a file attachment rather than displaying it in the window.
-
-**2. JavaScript Blobs:**
-A "Blob" (Binary Large Object) represents raw data. In the frontend, we convert the API response into a Blob so the browser can generate a temporary local URL for it, allowing the user to "download" data that was just generated.
-
-### Updated File Structure
-- `backend/main.py`: Added `DownloadRequest` model and `/api/download` endpoint.
-- `frontend/src/App.jsx`: Added `handleDownload` function and download button UI.
-
-### Current Status
-- **Progress**: Day 8 Complete.
-- **Next Steps**: Day 9 - Refactor frontend into smaller components for better maintainability.
-- **Timeline**: Still ahead of schedule.
-
-*Last Updated: January 1, 2026 - End of Day 8*
