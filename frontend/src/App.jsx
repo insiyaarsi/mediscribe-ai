@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CheckCircle, AlertCircle, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, X, AlertTriangle } from 'lucide-react';
 import FileUpload from './components/FileUpload';
 import TranscriptionDisplay from './components/TranscriptionDisplay';
 import EntityList from './components/EntityList';
@@ -42,18 +42,8 @@ function App() {
 
       const data = await response.json();
 
-      // Transform backend response to match component expectations
-      const transformedResult = {
-        transcription: data.transcription,
-        entities: {
-          total: data.entities?.total_entities || 0,
-          breakdown: data.entities?.category_counts || {},
-          categorized: data.entities?.categorized || {},
-        },
-        soap_note: data.soap_note,
-      };
-
-      setResult(transformedResult);
+      // Store the complete response (includes validation info)
+      setResult(data);
     } catch (err) {
       console.error('Transcription error:', err);
       setError(err.message || 'An error occurred during transcription');
@@ -100,34 +90,79 @@ function App() {
           </div>
         )}
 
-        {/* Success Message */}
-        {result && !error && (
-          <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-8 rounded-lg">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h3 className="font-semibold text-green-800">Success!</h3>
-                  <p className="text-green-700">
-                    Audio transcribed and analyzed successfully
-                  </p>
+        {/* Validation Failed Message (Yellow Warning) */}
+        {result && !result.success && result.validation && (
+          <div className="mt-6">
+            <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-8 rounded-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="w-6 h-6 text-yellow-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-yellow-800">
+                      Validation Failed
+                    </h3>
+                    <p className="text-yellow-700 mt-1">
+                      {result.validation.reason}
+                    </p>
+                    <div className="mt-3 text-sm text-yellow-600 space-y-1">
+                      <p>
+                        <span className="font-medium">Medical term density:</span>{' '}
+                        {(result.validation.details.medical_term_density * 100).toFixed(1)}%
+                        {' '}(minimum required: 10%)
+                      </p>
+                      <p>
+                        <span className="font-medium">Clinical markers found:</span>{' '}
+                        {result.validation.details.clinical_markers_found}
+                        {' '}(minimum required: 2)
+                      </p>
+                    </div>
+                  </div>
                 </div>
+                <button
+                  onClick={handleClearResults}
+                  className="flex-shrink-0 ml-4 text-yellow-500 hover:text-yellow-700 transition-colors"
+                  aria-label="Clear results"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              {/* Clear Results Button */}
-              <button
-                onClick={handleClearResults}
-                className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition-colors"
-              >
-                <X className="w-4 h-4" />
-                Clear Results
-              </button>
             </div>
+
+            {/* Show transcription even on validation failure */}
+            <TranscriptionDisplay transcription={result.transcription} />
           </div>
         )}
 
-        {/* Results Display - Only show if we have results */}
-        {result && (
-          <>
+        {/* Success - Valid Medical Content (Green Message) */}
+        {result && result.success && (
+          <div className="mt-6 space-y-6">
+            <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded-lg">
+              <div className="flex items-start justify-between">
+                <div className="flex items-start gap-3">
+                  <CheckCircle className="w-6 h-6 text-green-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h3 className="font-semibold text-green-800">Success!</h3>
+                    <p className="text-green-700 mt-1">
+                      Medical content validated and analyzed successfully
+                    </p>
+                    {result.validation && (
+                      <p className="text-sm text-green-600 mt-1">
+                        Confidence: {(result.validation.confidence_score * 100).toFixed(0)}%
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {/* Clear Results Button */}
+                <button
+                  onClick={handleClearResults}
+                  className="flex items-center gap-2 px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-sm font-semibold rounded transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                  Clear Results
+                </button>
+              </div>
+            </div>
+
             {/* Transcription */}
             <TranscriptionDisplay transcription={result.transcription} />
 
@@ -136,7 +171,7 @@ function App() {
 
             {/* SOAP Note */}
             <SOAPNoteView soapNote={result.soap_note} />
-          </>
+          </div>
         )}
 
         {/* Footer */}

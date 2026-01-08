@@ -3,10 +3,10 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import shutil
-from transcription import transcribe_audio_realtime
+from transcription import transcribe_audio
 from entity_extraction import extract_medical_entities
+from transcription import transcribe_audio_realtime
 from soap_generator import generate_soap_note, format_soap_note_text
-from content_validator import validate_medical_content
 
 # Create the FastAPI application
 app = FastAPI(
@@ -46,17 +46,13 @@ def health_check():
     }
 
 # Audio transcription endpoint
+# Audio transcription endpoint
 @app.post("/api/transcribe")
-async def transcribe_audio_endpoint(file: UploadFile = File(...)):
-    """
-    Transcribe uploaded audio file and extract medical entities.
-    Now includes content validation to ensure medical relevance.
-    """
-    print("\n" + "=" * 60)
-    print("NEW TRANSCRIPTION REQUEST")
-    print("=" * 60)
+async def transcribe_audio(file: UploadFile = File(...)):
+    print("\n" + "=" * 50)
     print(f"Received file: {file.filename}")
     print(f"Content type: {file.content_type}")
+    print("=" * 50)
     
     # Validate file extension
     allowed_extensions = ['.mp3', '.wav', '.m4a', '.webm', '.ogg', '.flac']
@@ -78,69 +74,50 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)):
         
         print(f"File saved to: {file_path}")
         
-        # STEP 1: Transcribe audio
-        print("\n--- STEP 1: TRANSCRIPTION ---")
+        # Transcribe audio
         transcription_result = transcribe_audio_realtime(file_path)
+
+        # # === NEW CODE: Apply spell correction ===
+        # from spell_correction import correct_medical_spelling
+
+        # corrected_text, corrections_log = correct_medical_spelling(
+        #     transcription_result, 
+        #     threshold=85, 
+        #     verbose=True
+        # )
+
+        # # Use corrected text for entity extraction
+        # transcription_result = corrected_text
+        # === END NEW CODE ===
         
-        print(f"Transcription: {transcription_result[:200]}...")
+        print(f"Transcription result: {transcription_result[:100]}...")
         
-        # STEP 2: VALIDATE MEDICAL CONTENT (NEW)
-        print("\n--- STEP 2: CONTENT VALIDATION ---")
-        validation_result = validate_medical_content(transcription_result)
-        
-        print(f"Validation Status: {validation_result['is_valid']}")
-        print(f"Confidence Score: {validation_result['confidence_score']}")
-        print(f"Reason: {validation_result['reason']}")
-        print(f"Medical Term Density: {validation_result['details']['medical_term_density']}")
-        print(f"Clinical Markers Found: {validation_result['details']['clinical_markers_found']}")
-        
-        # If validation fails, return early with transcription only
-        if not validation_result['is_valid']:
-            print("\n⚠️  VALIDATION FAILED - Skipping entity extraction and SOAP generation")
-            print("=" * 60 + "\n")
-            
-            # Clean up temp file
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            
-            return {
-                "success": False,
-                "filename": file.filename,
-                "transcription": transcription_result,
-                "validation": validation_result,
-                "message": "Non-medical content detected. Please upload clinical audio only."
-            }
-        
-        # STEP 3: Extract medical entities (only if validation passed)
-        print("\n--- STEP 3: ENTITY EXTRACTION ---")
+        # Extract medical entities from transcription
         entities_result = extract_medical_entities(transcription_result)
         
+                # Updated: use total_entities instead of entity_count
         print(f"Entity extraction: Found {entities_result['total_entities']} entities")
         print(f"Categorized: {entities_result['category_counts']}")
         
-        # STEP 4: Generate SOAP note (only if validation passed)
-        print("\n--- STEP 4: SOAP NOTE GENERATION ---")
+        # Generate SOAP note from categorized entities
         soap_note = generate_soap_note(
             transcription_result,
             entities_result['categorized']
         )
         
-        # Format SOAP note as text
+        # Format SOAP note as text for easy reading
         soap_text = format_soap_note_text(soap_note)
-        print("SOAP note generated successfully")
-        print("=" * 60 + "\n")
+        print("\n" + soap_text)
         
-        # Clean up temp file
-        if os.path.exists(file_path):
-            os.remove(file_path)
-            print(f"Cleaned up file: {file_path}")
+        # Clean up: delete the uploaded file
+        os.remove(file_path)
+        print(f"Cleaned up file: {file_path}")
         
-        # Return complete results
+        # Return combined results with new structure
         return {
             "success": True,
             "filename": file.filename,
             "transcription": transcription_result,
-            "validation": validation_result,
             "entities": {
                 "total": entities_result["total_entities"],
                 "breakdown": entities_result["category_counts"],
@@ -156,9 +133,9 @@ async def transcribe_audio_endpoint(file: UploadFile = File(...)):
         if os.path.exists(file_path):
             os.remove(file_path)
         
-        print("\n" + "=" * 60)
+        print("\n" + "=" * 50)
         print(f"ERROR in transcribe endpoint: {str(e)}")
-        print("=" * 60 + "\n")
+        print("=" * 50 + "\n")
         
         raise HTTPException(status_code=500, detail=str(e))
 
