@@ -1,370 +1,273 @@
-# MediScribe AI 
+# MediScribe AI
 
-**AI-Powered Medical Transcription & Clinical Documentation System**
+A medical transcription system that converts doctor-patient conversations into structured clinical documentation using local AI models. This project demonstrates production-level ML engineering with a focus on healthcare applications.
 
-A production-ready medical transcription system that converts doctor-patient conversations into structured clinical documentation. Built with local AI models for privacy and cost-efficiency.
+## Overview
 
-[![Status](https://img.shields.io/badge/Status-Active%20Development-success)](https://github.com/insiyaarsi/mediscribe-ai)
-[![Week](https://img.shields.io/badge/Week-6%20Complete-blue)](https://github.com/insiyaarsi/mediscribe-ai)
-[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+MediScribe AI processes medical audio recordings through a complete pipeline: speech-to-text transcription, medical entity extraction, content validation, and SOAP note generation. The system runs entirely locally using Whisper for transcription and scispacy for medical NLP, eliminating API costs and latency.
 
----
+**Current Status:** Week 6 complete - Frontend interface with content validation
 
-## Project Overview
+## Key Features
 
-MediScribe AI reduces physician documentation time from **8 minutes to 3 minutes per patient** by automating the conversion of clinical conversations into structured SOAP notes.
+**Core Processing**
+- Speech-to-text transcription using OpenAI's Whisper model (local deployment)
+- Medical entity extraction with scispacy's biomedical model
+- Intelligent compound term merging (e.g., "shortness of breath", "congestive heart failure")
+- Classification into 8 medical categories using 700+ term dictionary
+- Automated SOAP note generation from extracted entities
 
-**Key Achievement:** 100% validation accuracy across 5 medical specialties with intelligent content filtering.
+**Content Validation**
+- Medical content detection to prevent false documentation
+- Dual validation criteria: 10% medical term density + 2 clinical markers
+- Weighted confidence scoring system
+- Clear user feedback for rejected content
 
----
-
-## Features
-
-### Core Functionality
-- **Speech-to-Text Transcription** - Local Whisper model (no API costs)
-- **Medical Entity Extraction** - scispacy with 700+ medical terms
-- **Content Validation** - Automatically rejects non-medical audio
-- **SOAP Note Generation** - Structured clinical documentation
-- **Modern React UI** - Color-coded entities, responsive design
-- **Download SOAP Notes** - Export as formatted text files
-
-### Intelligent Processing
-- **Dynamic Compound Term Merging** - "shortness of breath", "congestive heart failure"
-- **Category Classification** - 8 medical categories (symptoms, medications, conditions, procedures, etc.)
-- **Medical Content Validation** - 10% term density + 2 clinical markers
-- **Cross-Specialty Support** - Cardiology, respiratory, endocrinology, psychiatry, geriatrics
-
-### Validation System (NEW - Week 6)
-- **Medical Term Density Analysis** - Calculates % of medical terminology
-- **Clinical Marker Detection** - 30+ indicators (patient, vital signs, diagnosis, etc.)
-- **Confidence Scoring** - Weighted validation with 70/30 split
-- **Smart Rejection** - Prevents false documentation for non-medical content
-
----
-
-## Live Demo
-
-> **Note:** Currently in development. Live deployment coming in Week 15-16.
-
-For now, see screenshots below of the working system.
-
----
-
-## Screenshots
-
-### Validation Success (Medical Content)
-*Green success banner with 100% confidence score*
-
-![Validation Success](docs/screenshots/01_validation_success.png)
-
-### Validation Failure (Non-Medical Content)
-*Yellow warning when non-medical audio is uploaded*
-
-![Validation Failure](docs/screenshots/02_validation_failure.png)
-
-### Entity Visualization
-*Color-coded medical entities organized by category*
-
-![Entity Visualization](docs/screenshots/03_entity_visualization.png)
-
-### SOAP Note Display
-*Structured clinical documentation with 4 sections*
-
-![SOAP Note](docs/screenshots/04_soap_note_display.png)
-
-### Upload Interface
-*Clean, professional file upload experience*
-
-![Upload Interface](docs/screenshots/05_upload_interface.png)
-
----
-
-## Architecture
-
-### Tech Stack
-
-**Backend:**
-- FastAPI (Python) - High-performance async API
-- Whisper (OpenAI) - Local speech-to-text (140MB model)
-- scispacy - Biomedical NLP (en_core_sci_sm)
-- Custom medical dictionaries (700+ terms)
-
-**Frontend:**
-- React 18 + TypeScript
-- Vite - Build tool
-- Tailwind CSS - Styling
-- Lucide React - Icons
-
-**Development:**
-- GitHub Codespaces - Cloud development environment
-- Git version control
-- 100% FREE stack (no paid APIs)
-
-### Data Flow
-
-```
-Audio Upload → Transcription (Whisper) → Validation → Entity Extraction (scispacy) 
-→ Categorization (700+ term dictionary) → SOAP Generation → React Display
-```
-
----
+**User Interface**
+- React-based frontend with real-time processing
+- Color-coded entity visualization by category
+- Downloadable SOAP notes with timestamps
+- Responsive design with Tailwind CSS
 
 ## Performance Metrics
 
-| Metric | Value | Status |
-|--------|-------|--------|
-| **Validation Accuracy** | 100% | ✅ Perfect |
-| **Entity Categorization** | 70% | ✅ Exceeds target (60%) |
-| **Compound Term Merging** | 100% | ✅ Zero false positives |
-| **Processing Time** | 5-10 sec | ✅ Fast |
-| **Specialties Tested** | 5 | ✅ Cross-specialty |
-| **Total Entities Processed** | 226 | ✅ Comprehensive |
+Based on testing across 5 medical scenarios (226 total entities):
 
-**Test Scenarios:**
-- ✅ Cardiology (Chest pain) - 35 entities
-- ✅ Respiratory (COPD) - 47 entities  
-- ✅ Endocrinology (Diabetes) - 33 entities
-- ✅ Mental Health (Depression) - 46 entities
-- ✅ Multi-System (Geriatrics) - 67 entities
-- ✅ Non-Medical (Control) - Correctly rejected
+- Validation accuracy: 100% (5/5 medical scenarios passed, 1/1 non-medical rejected)
+- Entity categorization rate: 70%
+- Compound term merging accuracy: 100% (zero false positives)
+- Average processing time: 5-10 seconds per audio file
+- Medical term density range: 33-47% across valid scenarios
 
-See [detailed test results](docs/test_results.md) for full analysis.
+See [test results documentation](docs/test_results.md) for detailed analysis.
 
----
+## Technical Architecture
 
-## 🛠️ Installation & Setup
+**Backend Stack**
+- FastAPI (Python) - REST API server
+- Whisper base model - Speech recognition (140MB, runs on CPU)
+- scispacy v0.6.2 with en_core_sci_sm - Biomedical NLP
+- Custom medical dictionaries - 700+ terms across 8 categories
+
+**Frontend Stack**
+- React 18 with TypeScript
+- Vite for development and building
+- Tailwind CSS for styling
+- Lucide React for icons
+
+**Processing Pipeline**
+```
+Audio Upload → Whisper Transcription → Content Validation → 
+Entity Extraction (scispacy) → Dictionary-based Categorization → 
+SOAP Note Generation → React UI Display
+```
+
+## Installation
 
 ### Prerequisites
-- Python 3.12+
-- Node.js 18+
+- Python 3.12 or higher
+- Node.js 18 or higher
 - Git
 
 ### Backend Setup
 
+Clone the repository and install Python dependencies:
+
 ```bash
-# Clone repository
 git clone https://github.com/insiyaarsi/mediscribe-ai.git
 cd mediscribe-ai/backend
-
-# Install dependencies
 pip install -r requirements.txt
+```
 
-# Download ML models
+Download the required ML models:
+
+```bash
 python -m spacy download en_core_sci_sm
+```
 
-# Start server
+Start the backend server:
+
+```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-**Backend runs on:** `http://localhost:8000`  
-**API docs:** `http://localhost:8000/docs`
+The API will be available at `http://localhost:8000` with documentation at `http://localhost:8000/docs`
 
 ### Frontend Setup
 
+Install Node dependencies and start the development server:
+
 ```bash
 cd ../frontend
-
-# Install dependencies
 npm install
-
-# Start dev server
 npm run dev
 ```
 
-**Frontend runs on:** `http://localhost:5173`
+The frontend will be available at `http://localhost:5173`
 
----
+## Usage
 
-## 📖 Usage
+The system accepts audio files in MP3, WAV, M4A, WebM, OGG, or FLAC format. Upload a medical audio recording through the web interface to:
 
-### 1. Upload Audio File
-- Click "Choose Audio File" or drag-and-drop
-- Supported formats: MP3, WAV, M4A, WebM, OGG, FLAC
+1. Transcribe the audio using Whisper
+2. Validate that the content is medical (automatic rejection of non-medical audio)
+3. Extract and categorize medical entities
+4. Generate a structured SOAP note
+5. Download the results as a text file
 
-### 2. Process & Validate
-- System transcribes audio using Whisper
-- Validates medical content (10% density + 2 markers)
-- Extracts medical entities with scispacy
+Non-medical content will be rejected with a validation warning, showing the transcription but skipping entity extraction and SOAP generation.
 
-### 3. Review Results
-- **Transcription:** Full text of audio
-- **Entities:** Color-coded by category (symptoms, medications, etc.)
-- **SOAP Note:** Structured clinical documentation
-
-### 4. Download (Optional)
-- Click "Download SOAP Note" button
-- Exports as formatted .txt file with timestamp
-
----
-
-## 🎓 Technical Highlights
-
-### Medical Entity Extraction
-- **700+ Medical Terms** across 8 categories
-- **Dynamic Compound Merging** (no hardcoded rules)
-- **70% Categorization Accuracy** 
-- **Zero False Positive Merges**
-
-### Content Validation System
-- **Medical Term Density:** Percentage of medical vocabulary
-- **Clinical Markers:** 30+ context indicators
-- **Confidence Scoring:** Weighted validation (70% density, 30% markers)
-- **Smart Rejection:** Prevents false documentation
-
-### SOAP Note Generation
-- **Subjective:** Chief complaint, symptoms, patient narrative
-- **Objective:** Findings, procedures, vitals
-- **Assessment:** Primary diagnosis, conditions
-- **Plan:** Treatment plan, medications, follow-up
-
----
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 mediscribe-ai/
 ├── backend/
-│   ├── main.py                    # FastAPI server
+│   ├── main.py                    # FastAPI server and endpoints
 │   ├── transcription.py           # Whisper integration
-│   ├── entity_extraction.py       # scispacy NLP
-│   ├── medical_categories.py      # 700+ term dictionary
-│   ├── content_validator.py       # Validation system (NEW)
-│   ├── soap_generator.py          # SOAP note creation
-│   └── requirements.txt           # Python dependencies
+│   ├── entity_extraction.py       # scispacy NLP pipeline
+│   ├── medical_categories.py      # Medical term dictionaries
+│   ├── content_validator.py       # Validation system
+│   ├── soap_generator.py          # SOAP note generation
+│   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.jsx               # Main component
+│   │   ├── App.jsx               # Main application component
 │   │   └── components/           # Reusable UI components
-│   ├── package.json              # Node dependencies
-│   └── vite.config.ts            # Vite configuration
+│   ├── package.json
+│   └── vite.config.ts
 └── docs/
-    ├── screenshots/              # Portfolio images
-    └── test_results.md          # Detailed test results
+    ├── screenshots/              # Portfolio screenshots
+    └── test_results.md          # Detailed testing analysis
 ```
-
----
 
 ## Testing
 
-### Test Coverage
-- **5 Medical Scenarios** - Diverse specialties
-- **1 Negative Control** - Non-medical content
-- **226 Total Entities** - Comprehensive extraction
-- **6 Compound Merges** - 100% accuracy
+The system has been tested across 5 medical specialties:
 
-### Run Tests
+- Cardiology (chest pain presentation) - 35 entities
+- Respiratory (COPD exacerbation) - 47 entities
+- Endocrinology (diabetes follow-up) - 33 entities
+- Mental health (depression/anxiety) - 46 entities
+- Multi-system (geriatric patient) - 67 entities
+
+Additionally, a non-medical control test (TV show review) was correctly rejected by the validation system.
+
+To run validation tests independently:
 
 ```bash
-# Test validator independently
 cd backend
 python content_validator.py
-
-# Manual testing via UI
-# 1. Start both servers
-# 2. Upload test audio files
-# 3. Verify validation and results
 ```
 
----
+## Technical Details
 
-## 📅 Development Timeline
+### Medical Entity Extraction
 
-| Week | Phase | Status |
-|------|-------|--------|
-| 1-2 | Backend Foundation | ✅ Complete |
-| 3-5 | Entity Extraction & SOAP | ✅ Complete |
-| 6 | Frontend + Validation | ✅ Complete |
-| 7 | UI Polish | 🎯 In Progress |
-| 8 | Testing & QA | 📋 Planned |
-| 9-10 | Database Integration | 📋 Planned |
-| 11 | Authentication | 📋 Planned |
-| 12 | Docker Deployment | 📋 Planned |
+The system uses scispacy to identify medical entities, then categorizes them using custom dictionaries:
 
-**Target Completion:** May 2026 (20 weeks)
+- Symptoms (180+ terms)
+- Medications (124+ terms)
+- Conditions (170+ terms)
+- Procedures (115+ terms)
+- Anatomical terms (85+ terms)
+- Clinical modifiers (60+ terms)
+- Clinical terms (30+ terms)
 
----
+Compound terms are dynamically merged when consecutive entities match multi-word dictionary entries, avoiding the need for hardcoded patterns.
 
-## 🎯 Future Enhancements
+### Content Validation
 
-### Week 7-8 (UI Polish)
-- Processing time display
-- File size indicator
-- Dark mode toggle
-- Smooth animations
-- Mobile optimization
+Validation uses two criteria, both of which must be met:
 
-### Week 9-10 (Database)
-- PostgreSQL integration
-- Save transcriptions
-- Patient history lookup
-- Search functionality
+- Medical term density: At least 10% of words must be medical terms
+- Clinical markers: At least 2 clinical context phrases must be present
 
-### Week 11 (Authentication)
-- User accounts
-- JWT authentication
-- Multi-user support
-- Role-based access
+Clinical markers include terms like "patient", "vital signs", "year old", "diagnosis", and medical abbreviations like "mg", "bpm", "mmhg".
 
-### Week 12+ (Advanced Features)
-- Real-time WebSocket streaming
-- ICD-10 code mapping
+The confidence score is calculated as a weighted average (70% density, 30% markers).
+
+### SOAP Note Generation
+
+SOAP notes are generated using a template-based system that maps extracted entities to appropriate sections:
+
+- **Subjective**: Chief complaint, symptoms, patient narrative
+- **Objective**: Findings, procedures, vital signs
+- **Assessment**: Primary diagnosis, all conditions
+- **Plan**: Treatment plan, medications, follow-up
+
+## Development Timeline
+
+This is a 20-week portfolio project for university applications:
+
+- Weeks 1-2: Backend foundation (FastAPI, Whisper, scispacy)
+- Weeks 3-5: Entity extraction, categorization, SOAP generation
+- Week 6: Frontend development and content validation (current)
+- Week 7: UI polish and enhancements
+- Weeks 8-10: Database integration (PostgreSQL)
+- Week 11: User authentication (JWT)
+- Week 12: Docker containerization
+- Weeks 13-14: Testing and QA
+- Weeks 15-16: Production deployment
+- Weeks 17-20: User testing, documentation, launch
+
+Target completion: May 2026
+
+## Future Enhancements
+
+Planned features for upcoming weeks:
+
+- PostgreSQL database for persistence
+- User authentication with JWT
+- Real-time WebSocket streaming for live transcription
+- ICD-10 code mapping for diagnoses
+- Medication dosage and frequency extraction
 - Drug interaction warnings
-- FHIR compliance
-- Medication dosage extraction
+- Temporal information extraction (symptom onset, duration)
+- FHIR-compliant output format
+- Docker deployment
+- Production hosting on Railway and Vercel
 
----
+## Design Decisions
 
-## 🤝 Contributing
+### Why Local Models?
 
-This is an educational portfolio project. Feedback and suggestions are welcome!
+After initial attempts with OpenAI and Hugging Face APIs resulted in rate limiting and reliability issues, I switched to local model deployment. This provides:
 
-**To provide feedback:**
-1. Open an issue on GitHub
-2. Describe the suggestion or bug
-3. Include relevant details (scenario, screenshots)
+- Zero API costs
+- Consistent performance without rate limits
+- No external dependencies or downtime
+- Better privacy for medical data
 
----
+### Why Template-based SOAP Notes?
 
-## 📄 License
+While AI-generated prose (e.g., using GPT) would produce more natural-sounding notes, template-based generation:
 
-MIT License - See [LICENSE](LICENSE) file for details.
+- Provides deterministic, reproducible output
+- Maintains clinical accuracy without hallucination risk
+- Keeps the entire system free and local
+- Is sufficient for a portfolio demonstration
 
----
+The trade-off is acceptable for an educational project.
+
+## Known Limitations
+
+- 30% of entities are marked "unknown" (primarily numbers, dosages, and temporal phrases)
+- Objective section uses placeholder text when vitals aren't mentioned
+- No negation detection ("no chest pain" vs "chest pain" both extract as symptoms)
+- SOAP notes are template-based rather than naturally generated prose
+- Single-user system (multi-user support planned for Week 11)
+- No persistence (database integration planned for Weeks 9-10)
+
+## License
+
+MIT License - See LICENSE file for details.
 
 ## Author
 
-**Student:** insiyaarsi  
-**Purpose:** Portfolio project for Canadian university applications  
-**Universities:** McGill, Concordia, Windsor, Carleton  
-**Timeline:** 20 weeks (Jan-May 2026)
+Built by insiyaarsi as a portfolio project.
+
+Repository: https://github.com/insiyaarsi/mediscribe-ai
 
 ---
 
-## Acknowledgments
-
-**Technologies:**
-- [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
-- [scispacy](https://allenai.github.io/scispacy/) - Biomedical NLP
-- [FastAPI](https://fastapi.tiangolo.com/) - Backend framework
-- [React](https://react.dev/) - Frontend framework
-- [Tailwind CSS](https://tailwindcss.com/) - Styling
-
-**Development:**
-- GitHub Codespaces - Free cloud development environment
-- Claude AI - Development assistance and architecture guidance
-
----
-
-## Contact
-
-- **GitHub:** [@insiyaarsi](https://github.com/insiyaarsi)
-- **Repository:** [mediscribe-ai](https://github.com/insiyaarsi/mediscribe-ai)
-- **Email:** [Available in GitHub profile]
-
----
-
-**⭐ If you find this project interesting, please star the repository!**
-
----
-
-*Last Updated: January 2026*
+Last updated: January 2026
