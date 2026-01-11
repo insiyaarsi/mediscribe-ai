@@ -2,6 +2,10 @@
 
 A medical transcription system that converts doctor-patient conversations into structured clinical documentation using local AI models. This project demonstrates production-level ML engineering with a focus on healthcare applications.
 
+[![Status](https://img.shields.io/badge/Status-Active%20Development-success)](https://github.com/insiyaarsi/mediscribe-ai)
+[![Week](https://img.shields.io/badge/Week-6%20Complete-blue)](https://github.com/insiyaarsi/mediscribe-ai)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
 ## Overview
 
 MediScribe AI processes medical audio recordings through a complete pipeline: speech-to-text transcription, medical entity extraction, content validation, and SOAP note generation. The system runs entirely locally using Whisper for transcription and scispacy for medical NLP, eliminating API costs and latency.
