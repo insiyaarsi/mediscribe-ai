@@ -10,3 +10,101 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Fade-in animation for results */
+.fade-in {
+  animation: fadeIn 0.4s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Slide-in animation for cards */
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Smooth transitions for all interactive elements */
+button, a, .transition-all {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Hover effect for buttons */
+button:hover {
+  transform: translateY(-1px);
+}
+
+button:active {
+  transform: translateY(0);
+}
+
+/* Smooth scroll behavior */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Loading pulse animation */
+.pulse-animation {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Scale animation for badges */
+.scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Staggered fade-in for entity badges */
+.stagger-fade-in {
+  animation: fadeIn 0.3s ease-in backwards;
+}
+
+.stagger-fade-in:nth-child(1) { animation-delay: 0.05s; }
+.stagger-fade-in:nth-child(2) { animation-delay: 0.1s; }
+.stagger-fade-in:nth-child(3) { animation-delay: 0.15s; }
+.stagger-fade-in:nth-child(4) { animation-delay: 0.2s; }
+.stagger-fade-in:nth-child(5) { animation-delay: 0.25s; }
+.stagger-fade-in:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* Smooth progress bar animation */
+.progress-bar {
+  transition: width 0.5s ease-out;
+}
