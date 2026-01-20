@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Download, Calendar, Edit2, Save, X, Copy, Check } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Download, Calendar, Edit2, Save, X, Copy, Check, HelpCircle, Keyboard } from 'lucide-react'
 
 function SOAPNoteView({ soapNote }) {
   // State for editing mode for each section
@@ -15,7 +15,90 @@ function SOAPNoteView({ soapNote }) {
   const [copiedSection, setCopiedSection] = useState(null)
   const [copiedFull, setCopiedFull] = useState(false)
 
+  // State for keyboard shortcuts help modal
+  const [showShortcutsModal, setShowShortcutsModal] = useState(false)
+
+  // Ref for the component container
+  const containerRef = useRef(null)
+
   if (!soapNote) return null
+
+  // Keyboard shortcuts handler
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Check if we're focused within this component
+      if (!containerRef.current?.contains(document.activeElement)) {
+        return
+      }
+
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0
+      const modKey = isMac ? e.metaKey : e.ctrlKey
+
+      // Show shortcuts modal with "?"
+      if (e.key === '?' && !e.shiftKey) {
+        e.preventDefault()
+        setShowShortcutsModal(true)
+        return
+      }
+
+      // Close modal with Escape
+      if (e.key === 'Escape' && showShortcutsModal) {
+        e.preventDefault()
+        setShowShortcutsModal(false)
+        return
+      }
+
+      // Cancel editing with Escape
+      if (e.key === 'Escape' && editingSection) {
+        e.preventDefault()
+        handleCancel()
+        return
+      }
+
+      // Save with Ctrl/Cmd + S
+      if (modKey && e.key === 's' && editingSection) {
+        e.preventDefault()
+        handleSave(editingSection)
+        return
+      }
+
+      // Download with Ctrl/Cmd + D
+      if (modKey && e.key === 'd') {
+        e.preventDefault()
+        handleDownload()
+        return
+      }
+
+      // Edit first section with Ctrl/Cmd + E
+      if (modKey && e.key === 'e' && !editingSection) {
+        e.preventDefault()
+        handleEditStart('subjective')
+        return
+      }
+
+      // Copy all with Ctrl/Cmd + Shift + C
+      if (modKey && e.shiftKey && e.key === 'C') {
+        e.preventDefault()
+        handleCopyFull()
+        return
+      }
+    }
+
+    // Add event listener
+    document.addEventListener('keydown', handleKeyDown)
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [editingSection, showShortcutsModal, editedSoapNote])
+
+  // Focus container when component mounts to enable shortcuts
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.focus()
+    }
+  }, [])
 
   // Handle starting edit mode for a section
   const handleEditStart = (sectionName) => {
@@ -266,8 +349,94 @@ End of SOAP Note
   }
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors duration-300">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3">
+    <div 
+      ref={containerRef}
+      tabIndex={0}
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors duration-300 focus:outline-none relative"
+    >
+      {/* Keyboard Shortcuts Help Badge */}
+      <button
+        onClick={() => setShowShortcutsModal(true)}
+        className="absolute top-2 right-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors opacity-60 hover:opacity-100"
+        title="Show keyboard shortcuts"
+      >
+        <Keyboard className="w-3 h-3" />
+        <span className="hidden sm:inline">Press ? for help</span>
+      </button>
+
+      {/* Keyboard Shortcuts Modal */}
+      {showShortcutsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 relative">
+            <button
+              onClick={() => setShowShortcutsModal(false)}
+              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
+              title="Close"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="flex items-center gap-2 mb-4">
+              <HelpCircle className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">
+                Keyboard Shortcuts
+              </h3>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Edit first section</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  {navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl'} + E
+                </kbd>
+              </div>
+
+              <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Save changes</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  {navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl'} + S
+                </kbd>
+              </div>
+
+              <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Cancel editing</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  Esc
+                </kbd>
+              </div>
+
+              <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Download SOAP note</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  {navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl'} + D
+                </kbd>
+              </div>
+
+              <div className="flex items-center justify-between py-2 border-b border-gray-200 dark:border-gray-700">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Copy entire note</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  {navigator.platform.toUpperCase().indexOf('MAC') >= 0 ? 'Cmd' : 'Ctrl'} + Shift + C
+                </kbd>
+              </div>
+
+              <div className="flex items-center justify-between py-2">
+                <span className="text-sm text-gray-700 dark:text-gray-300">Show this help</span>
+                <kbd className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded text-xs font-mono">
+                  ?
+                </kbd>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowShortcutsModal(false)}
+              className="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg transition-colors"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 mt-8 sm:mt-0">
         <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">
           SOAP Note
           {editingSection && (
