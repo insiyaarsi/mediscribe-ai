@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle, AlertCircle, X, Moon, Sun } from 'lucide-react'
+import { CheckCircle, AlertCircle, X, Moon, Sun, History } from 'lucide-react'
 import FileUpload from './components/FileUpload'
 import TranscriptionDisplay from './components/TranscriptionDisplay'
 import EntityList from './components/EntityList'
 import SOAPNoteView from './components/SOAPNoteView'
 import ConfidenceBar from './components/ConfidenceBar'
+import TranscriptionHistory from './components/TranscriptionHistory'
 
 function App() {
   const [isLoading, setIsLoading] = useState(false)
@@ -13,6 +14,8 @@ function App() {
   const [processingTime, setProcessingTime] = useState(null)
   const [fileSize, setFileSize] = useState(null)
   const [currentAudioFile, setCurrentAudioFile] = useState(null)
+  const [isFromHistory, setIsFromHistory] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     // Initialize from localStorage or default to false
     const saved = localStorage.getItem('darkMode')
@@ -34,11 +37,115 @@ function App() {
     setDarkMode(!darkMode)
   }
 
+  // Save transcription to history
+  const saveToHistory = (audioFile, data, processingTime) => {
+    console.log('Saving to history:', { audioFile: audioFile.name, data })
+    console.log('Validation data:', data.validation)
+    console.log('Raw confidence score:', data.validation?.confidence_score)
+    
+    // Convert confidence to percentage if it's a decimal (0-1 range)
+    let confidence = data.validation?.confidence_score || null
+    if (confidence !== null && confidence <= 1) {
+      // Backend sent decimal (0.85), convert to percentage (85)
+      confidence = Math.round(confidence * 100)
+      console.log('Converted confidence to percentage:', confidence)
+    }
+    
+    const historyItem = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      filename: audioFile.name,
+      timestamp: new Date().toISOString(),
+      fileSize: audioFile.size,
+      processingTime: processingTime,
+      entityCount: data.entities?.total || 0,
+      confidence: confidence,
+      transcription: data.transcription,
+      entities: data.entities,
+      soapNote: data.soap_note,
+      validation: data.validation
+    }
+
+    console.log('History item confidence (saved):', historyItem.confidence)
+
+    // Get existing history
+    const saved = localStorage.getItem('mediscribe_history')
+    const history = saved ? JSON.parse(saved) : []
+
+    // Add new item at the beginning
+    history.unshift(historyItem)
+
+    // Keep only last 5 items
+    const trimmedHistory = history.slice(0, 5)
+
+    // Save back to localStorage
+    localStorage.setItem('mediscribe_history', JSON.stringify(trimmedHistory))
+    
+    console.log('History saved. Total items:', trimmedHistory.length)
+  }
+
+  // Load transcription from history
+  const handleLoadHistory = (historyItem) => {
+    console.log('Loading history item:', historyItem)
+    
+    // Show loading state
+    setIsLoadingHistory(true)
+    
+    // Clear any existing results first
+    setResult(null)
+    setError(null)
+    setCurrentAudioFile(null)
+    setProcessingTime(null)
+    setFileSize(null)
+    setIsFromHistory(false)
+    
+    // Use setTimeout to ensure React has time to clear the UI before loading new data
+    // This prevents issues when switching between history items
+    setTimeout(() => {
+      // Set the flag before loading data
+      setIsFromHistory(true)
+      
+      // Reconstruct result object from history
+      const reconstructedResult = {
+        transcription: historyItem.transcription,
+        entities: historyItem.entities,
+        soap_note: historyItem.soapNote,
+        validation: historyItem.validation
+      }
+
+      console.log('Reconstructed result:', reconstructedResult)
+
+      // Set all state at once
+      setResult(reconstructedResult)
+      setProcessingTime(historyItem.processingTime)
+      setFileSize(historyItem.fileSize)
+      
+      // Create a simple mock file object for display purposes
+      // This is NOT a real File, just metadata for display
+      const mockFile = {
+        name: historyItem.filename,
+        size: historyItem.fileSize,
+        type: 'audio/mpeg',
+        // Add a flag to indicate this is a mock
+        isMock: true
+      }
+      setCurrentAudioFile(mockFile)
+      
+      // Clear loading state
+      setIsLoadingHistory(false)
+      
+      // Scroll to results after data is set
+      setTimeout(() => {
+        window.scrollTo({ top: 300, behavior: 'smooth' })
+      }, 100)
+    }, 50) // 50ms delay to allow React to re-render
+  }
+
   const handleTranscribe = async (audioFile) => {
     setIsLoading(true)
     setError(null)
     setResult(null)
     setProcessingTime(null)
+    setIsFromHistory(false)
     
     // Store file size and audio file for display
     setFileSize(audioFile.size)
@@ -68,6 +175,9 @@ function App() {
 
       const data = await response.json()
       setResult(data)
+
+      // Save to history
+      saveToHistory(audioFile, data, duration)
     } catch (err) {
       setError(err.message || 'An error occurred during transcription')
       console.error('Transcription error:', err)
@@ -82,6 +192,8 @@ function App() {
     setProcessingTime(null)
     setFileSize(null)
     setCurrentAudioFile(null)
+    setIsFromHistory(false)
+    setIsLoadingHistory(false)
   }
 
   // Format file size for display
@@ -119,6 +231,13 @@ function App() {
             </p>
           </div>
 
+          {/* Transcription History */}
+          <TranscriptionHistory 
+            onLoadHistory={handleLoadHistory}
+            darkMode={darkMode}
+            isLoadingHistory={isLoadingHistory}
+          />
+
           {/* Upload Section */}
           <FileUpload 
             onTranscribe={handleTranscribe} 
@@ -137,17 +256,36 @@ function App() {
           )}
 
           {/* Success Message with Processing Stats */}
-          {result && !error && (
+          {isLoadingHistory && (
+            <div className="mt-4 sm:mt-6 fade-in">
+              <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-lg p-3 sm:p-4">
+                <div className="flex items-start">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 dark:border-blue-400 mr-3 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <h3 className="text-blue-900 dark:text-blue-200 font-semibold text-sm sm:text-base">
+                      Loading from History...
+                    </h3>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {result && !error && !isLoadingHistory && (
             <div className="mt-4 sm:mt-6 fade-in space-y-4">
               {/* Success Message */}
-              <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 rounded-lg p-3 sm:p-4">
+              <div className={`${isFromHistory ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700' : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700'} border rounded-lg p-3 sm:p-4`}>
                 <div className="flex items-start">
-                  <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 flex-shrink-0 mt-0.5" />
+                  {isFromHistory ? (
+                    <History className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0 mt-0.5" />
+                  ) : (
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 flex-shrink-0 mt-0.5" />
+                  )}
                   <div className="flex-1">
-                    <h3 className="text-green-900 dark:text-green-200 font-semibold text-sm sm:text-base">
-                      Processing Complete
+                    <h3 className={`${isFromHistory ? 'text-blue-900 dark:text-blue-200' : 'text-green-900 dark:text-green-200'} font-semibold text-sm sm:text-base`}>
+                      {isFromHistory ? 'Loaded from History' : 'Processing Complete'}
                     </h3>
-                    <div className="text-green-800 dark:text-green-300 text-xs sm:text-sm mt-1 space-y-1">
+                    <div className={`${isFromHistory ? 'text-blue-800 dark:text-blue-300' : 'text-green-800 dark:text-green-300'} text-xs sm:text-sm mt-1 space-y-1`}>
                       {processingTime && (
                         <p>Processed in {processingTime.toFixed(2)} seconds</p>
                       )}

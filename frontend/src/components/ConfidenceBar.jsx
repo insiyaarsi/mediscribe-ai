@@ -1,56 +1,53 @@
 function ConfidenceBar({ score, darkMode }) {
-  if (!score && score !== 0) return null
+  if (score === null || score === undefined) return null
 
-  const percentage = Math.round(score * 100)
-  
-  // Determine color based on confidence level
-  const getColorClasses = () => {
-    if (percentage >= 80) {
-      return {
-        bg: 'bg-green-500 dark:bg-green-400',
-        text: 'text-green-900 dark:text-green-100',
-        border: 'border-green-300 dark:border-green-600',
-        bgLight: 'bg-green-50 dark:bg-green-900/40'
-      }
-    } else if (percentage >= 60) {
-      return {
-        bg: 'bg-yellow-500 dark:bg-yellow-400',
-        text: 'text-yellow-900 dark:text-yellow-100',
-        border: 'border-yellow-300 dark:border-yellow-600',
-        bgLight: 'bg-yellow-50 dark:bg-yellow-900/40'
-      }
-    } else {
-      return {
-        bg: 'bg-orange-500 dark:bg-orange-400',
-        text: 'text-orange-900 dark:text-orange-100',
-        border: 'border-orange-300 dark:border-orange-600',
-        bgLight: 'bg-orange-50 dark:bg-orange-900/40'
-      }
-    }
+  // Convert to percentage if it's a decimal (0-1 range)
+  let percentage = score
+  if (score <= 1) {
+    percentage = Math.round(score * 100)
   }
 
-  const colors = getColorClasses()
+  // Determine color based on percentage
+  const getColor = () => {
+    if (percentage >= 80) return 'bg-green-500'
+    if (percentage >= 60) return 'bg-yellow-500'
+    return 'bg-orange-500'
+  }
+
+  const getTextColor = () => {
+    if (percentage >= 80) return 'text-green-800 dark:text-green-200'
+    if (percentage >= 60) return 'text-yellow-800 dark:text-yellow-200'
+    return 'text-orange-800 dark:text-orange-200'
+  }
+
+  const getLabel = () => {
+    if (percentage >= 80) return 'High confidence - Strong medical content detected'
+    if (percentage >= 60) return 'Moderate confidence - Medical content detected'
+    return 'Low confidence - Limited medical content'
+  }
 
   return (
-    <div className={`${colors.bgLight} border ${colors.border} rounded-lg p-4 mt-4 mb-4`}>
+    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors duration-300">
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-sm font-semibold ${colors.text}`}>
+        <h3 className="text-base sm:text-lg font-semibold text-gray-800 dark:text-white">
           Validation Confidence
-        </span>
-        <span className={`text-sm font-bold ${colors.text}`}>
+        </h3>
+        <span className="text-lg sm:text-xl font-bold text-gray-800 dark:text-white">
           {percentage}%
         </span>
       </div>
-      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
-        <div 
-          className={`${colors.bg} h-3 rounded-full transition-all duration-500 ease-out`}
+
+      {/* Progress Bar */}
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 sm:h-4 mb-2 overflow-hidden">
+        <div
+          className={`h-full ${getColor()} transition-all duration-500 ease-out rounded-full`}
           style={{ width: `${percentage}%` }}
         />
       </div>
-      <p className="text-xs text-gray-700 dark:text-gray-300 mt-2">
-        {percentage >= 80 && 'High confidence - Strong medical content detected'}
-        {percentage >= 60 && percentage < 80 && 'Moderate confidence - Some medical content detected'}
-        {percentage < 60 && 'Low confidence - Limited medical content detected'}
+
+      {/* Label */}
+      <p className={`text-xs sm:text-sm ${getTextColor()} transition-colors`}>
+        {getLabel()}
       </p>
     </div>
   )
