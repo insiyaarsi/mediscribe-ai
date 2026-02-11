@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Download, Calendar, Edit2, Save, X, Copy, Check, HelpCircle, Keyboard } from 'lucide-react'
+import { Download, Calendar, Edit2, Save, X, Copy, Check, HelpCircle, Keyboard, Printer } from 'lucide-react'
 
 function SOAPNoteView({ soapNote }) {
   // State for editing mode for each section
@@ -231,6 +231,11 @@ End of SOAP Note
     URL.revokeObjectURL(url)
   }
 
+  // Print SOAP note
+  const handlePrint = () => {
+    window.print()
+  }
+
   // Render content in view mode
   const renderContent = (content) => {
     if (typeof content === 'string') {
@@ -276,12 +281,12 @@ End of SOAP Note
     const isCopied = copiedSection === sectionName
 
     return (
-      <div className={`${bgColor} ${darkBgColor} border-l-4 ${borderColor} ${darkBorderColor} p-3 sm:p-4 rounded-r-lg transition-all ${isEditing ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400' : ''}`}>
+      <div className={`soap-section ${bgColor} ${darkBgColor} border-l-4 ${borderColor} ${darkBorderColor} p-3 sm:p-4 rounded-r-lg transition-all ${isEditing ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-blue-400' : ''} print:border-l-4 print:rounded-none`}>
         <div className="flex items-center justify-between mb-2">
-          <h3 className={`text-base sm:text-lg font-semibold ${textColor} ${darkTextColor}`}>
+          <h3 className={`text-base sm:text-lg font-semibold ${textColor} ${darkTextColor} print:text-black`}>
             {sectionName.charAt(0).toUpperCase() + sectionName.slice(1)}
           </h3>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 print:hidden">
             {isEditing ? (
               <>
                 <button
@@ -352,12 +357,12 @@ End of SOAP Note
     <div 
       ref={containerRef}
       tabIndex={0}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors duration-300 focus:outline-none relative"
+      className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 sm:p-6 transition-colors duration-300 focus:outline-none relative print-soap-note print:shadow-none print:p-8"
     >
       {/* Keyboard Shortcuts Help Badge */}
       <button
         onClick={() => setShowShortcutsModal(true)}
-        className="absolute top-2 right-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors opacity-60 hover:opacity-100"
+        className="absolute top-2 right-2 flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors opacity-60 hover:opacity-100 print:hidden"
         title="Show keyboard shortcuts"
       >
         <Keyboard className="w-3 h-3" />
@@ -436,25 +441,26 @@ End of SOAP Note
           </div>
         </div>
       )}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 mt-8 sm:mt-0">
-        <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white">
-          SOAP Note
-          {editingSection && (
-            <span className="ml-2 text-sm text-blue-600 dark:text-blue-400 font-normal">
-              (Editing {editingSection})
-            </span>
-          )}
-        </h2>
-        <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-3 mt-8 sm:mt-0 print:mt-0 print-header">
+        <div>
+          <h2 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-white print:text-black print:text-2xl">
+            SOAP Note
+            {editingSection && (
+              <span className="ml-2 text-sm text-blue-600 dark:text-blue-400 font-normal print:hidden">
+                (Editing {editingSection})
+              </span>
+            )}
+          </h2>
           {soapNote.generated_at && (
-            <div className="flex items-center text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-              <Calendar className="w-4 h-4 mr-1" />
-              <span>{new Date(soapNote.generated_at).toLocaleString()}</span>
-            </div>
+            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 print:text-black">
+              Generated: {new Date(soapNote.generated_at).toLocaleString()}
+            </p>
           )}
+        </div>
+        <div className="flex items-center gap-3 flex-wrap print:hidden">
           <button
             onClick={handleCopyFull}
-            className={`flex items-center gap-2 ${copiedFull ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'} text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium`}
+            className={`flex items-center gap-2 ${copiedFull ? 'bg-green-600' : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'} text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium print:hidden`}
             title="Copy entire SOAP note"
           >
             {copiedFull ? (
@@ -470,8 +476,16 @@ End of SOAP Note
             )}
           </button>
           <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-500 dark:hover:bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium print:hidden"
+            title="Print SOAP note"
+          >
+            <Printer className="w-4 h-4" />
+            <span className="hidden sm:inline">Print</span>
+          </button>
+          <button
             onClick={handleDownload}
-            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium"
+            className="flex items-center gap-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-xs sm:text-sm font-medium print:hidden"
             title="Download SOAP note as text file"
           >
             <Download className="w-4 h-4" />

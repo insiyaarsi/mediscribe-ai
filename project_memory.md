@@ -1452,7 +1452,7 @@ HUGGINGFACE_API_KEY=hf_... (not used, kept for reference)
    - Start backend: `uvicorn main:app --reload --host 0.0.0.0 --port 8000`
    - Start frontend: `npm run dev` (NEW - Day 7)
    - Test backend with Swagger UI at `http://localhost:8000/docs`
-   - Test frontend at `http://localhost:5173` (NEW - Day 7)
+   - Test frontend at `http://localhost:5173` (NEW - Day 7) 
 
 5. **No Emojis Rule:**
    - Student explicitly requested NO EMOJIS in code, UI, or comments

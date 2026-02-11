@@ -108,3 +108,131 @@ html {
 .progress-bar {
   transition: width 0.5s ease-out;
 }
+
+/* Print Styles - Add these to the end of your index.css file */
+
+@media print {
+  /* Reset body */
+  body {
+    background: white !important;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Hide header, upload, history, and other UI elements */
+  header,
+  nav,
+  .print\\:hidden {
+    display: none !important;
+  }
+
+  /* Hide gradient background */
+  body > div > div {
+    background: white !important;
+    padding: 0 !important;
+    min-height: auto !important;
+  }
+
+  /* Ensure SOAP note container is visible */
+  .print-soap-note {
+    display: block !important;
+    background: white !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+    padding: 20mm 15mm !important;
+  }
+
+  /* Remove all background colors except section highlights */
+  * {
+    box-shadow: none !important;
+  }
+
+  /* Force black text for readability */
+  h1, h2, h3, h4, h5, h6, p, span, div, li {
+    color: black !important;
+  }
+
+  /* Keep section colors subtle but visible */
+  .bg-blue-50,
+  .dark\\:bg-blue-900\\ {
+    background: #eff6ff !important;
+  }
+
+  .bg-green-50,
+  .dark\\:bg-green-900\\ {
+    background: #f0fdf4 !important;
+  }
+
+  .bg-yellow-50,
+  .dark\\:bg-yellow-900\\{
+    background: #fefce8 !important;
+  }
+
+  .bg-purple-50,
+  .dark\\:bg-purple-900\\ {
+    background: #faf5ff !important;
+  }
+
+  /* Keep border colors */
+  .border-blue-500,
+  .dark\\:border-blue-400 {
+    border-color: #3b82f6 !important;
+  }
+
+  .border-green-500,
+  .dark\\:border-green-400 {
+    border-color: #22c55e !important;
+  }
+
+  .border-yellow-500,
+  .dark\\:border-yellow-400 {
+    border-color: #eab308 !important;
+  }
+
+  .border-purple-500,
+  .dark\\:border-purple-400 {
+    border-color: #a855f7 !important;
+  }
+
+  /* Prevent page breaks inside sections */
+  .soap-section {
+    page-break-inside: avoid;
+    margin-bottom: 15px !important;
+  }
+
+  /* Page settings */
+  @page {
+    margin: 15mm;
+    size: A4 portrait;
+  }
+
+  /* Print header styling */
+  .print-header {
+    border-bottom: 2px solid #000 !important;
+    padding-bottom: 10px !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Hide dark mode specific elements */
+  .dark\\:bg-gray-800,
+  .dark\\:bg-gray-700,
+  .dark\\:text-white,
+  .dark\\:text-gray-300 {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Ensure lists and paragraphs print correctly */
+  ul, ol {
+    margin-left: 20px;
+  }
+
+  li {
+    margin-bottom: 5px;
+  }
+
+  p {
+    margin-bottom: 10px;
+  }
+}
