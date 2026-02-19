@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react'
-import { CheckCircle, AlertCircle, X, Moon, Sun, History as HistoryIcon, FileText, Activity, Copy, Clock, Trash2 } from 'lucide-react'
+import { CheckCircle, AlertCircle, X, Moon, Sun, History, FileText, Activity } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
-// NEW COMPONENTS ONLY - NO OLD COMPONENTS
+// NEW: Import new components
 import { FileUploadZone } from './components/features/transcription/FileUploadZone'
 import { EntityBadgeList, EntityCategorySummary } from './components/medical/EntityBadge'
-import { ConfidenceScore } from './components/medical/ConfidenceScore'
+import { ConfidenceScore, ConfidenceScoreList } from './components/medical/ConfidenceScore'
 import { SOAPNoteCard } from './components/medical/SOAPNoteCard'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './components/ui/card'
 import { Button } from './components/ui/button'
 import { Separator } from './components/ui/separator'
 import { Alert, AlertDescription, AlertTitle } from './components/ui/alert'
-import { Badge } from './components/ui/badge'
+
+// OLD: Keep these for now
+import TranscriptionDisplay from './components/TranscriptionDisplay'
+import TranscriptionHistory from './components/TranscriptionHistory'
 
 function App() {
   const [isLoading, setIsLoading] = useState(false)
@@ -21,23 +24,11 @@ function App() {
   const [fileSize, setFileSize] = useState(null)
   const [currentAudioFile, setCurrentAudioFile] = useState(null)
   const [isFromHistory, setIsFromHistory] = useState(false)
-  const [history, setHistory] = useState([])
-  const [showHistory, setShowHistory] = useState(false)
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode')
     return saved ? JSON.parse(saved) : false
   })
-
-  useEffect(() => {
-    const saved = localStorage.getItem('mediscribe_history')
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved))
-      } catch (e) {
-        console.error('Failed to load history:', e)
-      }
-    }
-  }, [])
 
   useEffect(() => {
     localStorage.setItem('darkMode', JSON.stringify(darkMode))
@@ -53,6 +44,8 @@ function App() {
   }
 
   const saveToHistory = (audioFile, data, processingTime) => {
+    console.log('Saving to history:', { audioFile: audioFile.name, data })
+    
     let confidence = data.validation?.confidence_score || null
     if (confidence !== null && confidence <= 1) {
       confidence = Math.round(confidence * 100)
@@ -64,50 +57,57 @@ function App() {
       timestamp: new Date().toISOString(),
       fileSize: audioFile.size,
       processingTime: processingTime,
+      entityCount: data.entities?.total || 0,
       confidence: confidence,
       transcription: data.transcription,
-      entitiesJSON: JSON.stringify(data.entities),
-      soapNoteJSON: JSON.stringify(data.soap_note),
-      validationJSON: JSON.stringify(data.validation)
+      entities: data.entities,
+      soapNote: data.soap_note,
+      validation: data.validation
     }
 
-    const newHistory = [historyItem, ...history].slice(0, 5)
-    setHistory(newHistory)
-    localStorage.setItem('mediscribe_history', JSON.stringify(newHistory))
+    const saved = localStorage.getItem('mediscribe_history')
+    const history = saved ? JSON.parse(saved) : []
+    history.unshift(historyItem)
+    const trimmedHistory = history.slice(0, 5)
+    localStorage.setItem('mediscribe_history', JSON.stringify(trimmedHistory))
   }
 
-  const loadFromHistory = (historyItem) => {
-    setIsFromHistory(true)
+  const handleLoadHistory = (historyItem) => {
+    setIsLoadingHistory(true)
     setResult(null)
     setError(null)
+    setCurrentAudioFile(null)
+    setProcessingTime(null)
+    setFileSize(null)
+    setIsFromHistory(false)
     
-    const reconstructedResult = {
-      transcription: historyItem.transcription,
-      entities: JSON.parse(historyItem.entitiesJSON),
-      soap_note: JSON.parse(historyItem.soapNoteJSON),
-      validation: JSON.parse(historyItem.validationJSON)
-    }
+    setTimeout(() => {
+      setIsFromHistory(true)
+      
+      const reconstructedResult = {
+        transcription: historyItem.transcription,
+        entities: historyItem.entities,
+        soap_note: historyItem.soapNote,
+        validation: historyItem.validation
+      }
 
-    setResult(reconstructedResult)
-    setProcessingTime(historyItem.processingTime)
-    setFileSize(historyItem.fileSize)
-    
-    const mockFile = {
-      name: historyItem.filename,
-      size: historyItem.fileSize,
-      type: 'audio/mpeg',
-      isMock: true
-    }
-    setCurrentAudioFile(mockFile)
-    setShowHistory(false)
-    
-    window.scrollTo({ top: 300, behavior: 'smooth' })
-  }
-
-  const deleteFromHistory = (id) => {
-    const newHistory = history.filter(item => item.id !== id)
-    setHistory(newHistory)
-    localStorage.setItem('mediscribe_history', JSON.stringify(newHistory))
+      setResult(reconstructedResult)
+      setProcessingTime(historyItem.processingTime)
+      setFileSize(historyItem.fileSize)
+      
+      const mockFile = {
+        name: historyItem.filename,
+        size: historyItem.fileSize,
+        type: 'audio/mpeg',
+        isMock: true
+      }
+      setCurrentAudioFile(mockFile)
+      setIsLoadingHistory(false)
+      
+      setTimeout(() => {
+        window.scrollTo({ top: 300, behavior: 'smooth' })
+      }, 100)
+    }, 50)
   }
 
   const handleTranscribe = async (audioFile) => {
@@ -141,7 +141,6 @@ function App() {
       }
 
       const data = await response.json()
-      console.log('Backend response:', data)
       setResult(data)
 
       saveToHistory(audioFile, data, duration)
@@ -160,6 +159,7 @@ function App() {
     setFileSize(null)
     setCurrentAudioFile(null)
     setIsFromHistory(false)
+    setIsLoadingHistory(false)
   }
 
   const handleFileRemove = () => {
@@ -174,46 +174,56 @@ function App() {
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB'
   }
 
-  const formatDate = (isoString) => {
-    const date = new Date(isoString)
-    const now = new Date()
-    const diffMs = now - date
-    const diffMins = Math.floor(diffMs / 60000)
-    
-    if (diffMins < 1) return 'Just now'
-    if (diffMins < 60) return `${diffMins}m ago`
-    if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`
-    return `${Math.floor(diffMins / 1440)}d ago`
-  }
-
-  // FIXED: Extract entities from result.entities.categorized
+  // FIXED: Convert nested backend entity structure to flat format for new components
   const getFormattedEntities = () => {
     if (!result?.entities) return []
     
     const formatted = []
     
-    // YOUR BACKEND USES: entities.categorized.symptoms (not entities.symptoms!)
-    const categorized = result.entities.categorized || {}
-    
-    const categories = ['symptoms', 'medications', 'conditions', 'procedures', 'tests']
-    
-    categories.forEach(category => {
-      const items = categorized[category] || []
-      
-      if (!Array.isArray(items)) {
-        console.warn(`${category} is not an array:`, items)
-        return
+    // Helper to extract items from nested structure
+    const extractItems = (data, category) => {
+      // Handle nested structure: { symptoms: [...], symptom_count: N, ... }
+      if (data && typeof data === 'object') {
+        // Check if it has a matching plural key
+        const items = data[category + 's'] || data[category] || []
+        
+        // If items is an array, process it
+        if (Array.isArray(items)) {
+          return items
+        }
+        
+        // If data itself is an array, return it
+        if (Array.isArray(data)) {
+          return data
+        }
       }
       
+      return []
+    }
+    
+    // Process each category
+    const categories = [
+      { key: 'symptoms', singular: 'symptom' },
+      { key: 'medications', singular: 'medication' },
+      { key: 'conditions', singular: 'condition' },
+      { key: 'procedures', singular: 'procedure' },
+      { key: 'tests', singular: 'test' }
+    ]
+    
+    categories.forEach(({ key, singular }) => {
+      const categoryData = result.entities[key]
+      const items = extractItems(categoryData, singular)
+      
       items.forEach(item => {
-        // Your backend already provides {text, category} format!
-        if (item && typeof item === 'object' && item.text) {
-          formatted.push({
-            text: item.text,
-            category: item.category || category.slice(0, -1), // Remove 's' to get singular
-            confidence: item.confidence || 85
-          })
-        }
+        // Handle both string and object formats
+        const text = typeof item === 'string' ? item : (item.text || item.name || String(item))
+        const confidence = typeof item === 'object' ? (item.confidence || 85) : 85
+        
+        formatted.push({
+          text: text,
+          category: singular,
+          confidence: confidence
+        })
       })
     })
     
@@ -221,22 +231,11 @@ function App() {
     return formatted
   }
 
-  const copyTranscription = async () => {
-    if (!result?.transcription) return
-    
-    try {
-      await navigator.clipboard.writeText(result.transcription)
-      alert('Transcription copied to clipboard!')
-    } catch (err) {
-      console.error('Failed to copy:', err)
-    }
-  }
-
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-indigo-950 dark:to-purple-950 transition-colors duration-300">
         
-        {/* Header */}
+        {/* Professional Header */}
         <motion.header 
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -244,6 +243,7 @@ function App() {
         >
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex items-center justify-between">
+              {/* Logo and Title */}
               <div className="flex items-center gap-3">
                 <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 shadow-md">
                   <FileText className="w-6 h-6 text-white" />
@@ -258,98 +258,40 @@ function App() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
-                {history.length > 0 && (
-                  <Button
-                    onClick={() => setShowHistory(!showHistory)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <HistoryIcon className="w-4 h-4 mr-2" />
-                    History ({history.length})
-                  </Button>
+              {/* Dark Mode Toggle */}
+              <Button
+                onClick={toggleDarkMode}
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+              >
+                {darkMode ? (
+                  <Sun className="w-4 h-4 text-yellow-500" />
+                ) : (
+                  <Moon className="w-4 h-4 text-indigo-600" />
                 )}
-                <Button
-                  onClick={toggleDarkMode}
-                  variant="outline"
-                  size="sm"
-                  className="rounded-full"
-                >
-                  {darkMode ? (
-                    <Sun className="w-4 h-4 text-yellow-500" />
-                  ) : (
-                    <Moon className="w-4 h-4 text-indigo-600" />
-                  )}
-                </Button>
-              </div>
+              </Button>
             </div>
           </div>
         </motion.header>
 
+        {/* Main Content */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           
-          {/* Simple History Panel */}
-          <AnimatePresence>
-            {showHistory && history.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-              >
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Recent Transcriptions</CardTitle>
-                    <CardDescription>Your last 5 transcriptions</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {history.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate text-gray-900 dark:text-white">
-                              {item.filename}
-                            </p>
-                            <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400 mt-1">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {formatDate(item.timestamp)}
-                              </span>
-                              {item.confidence && (
-                                <Badge variant="outline" className="text-xs">
-                                  {item.confidence}% confidence
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button
-                              onClick={() => loadFromHistory(item)}
-                              variant="ghost"
-                              size="sm"
-                            >
-                              Load
-                            </Button>
-                            <Button
-                              onClick={() => deleteFromHistory(item.id)}
-                              variant="ghost"
-                              size="sm"
-                            >
-                              <Trash2 className="w-4 h-4 text-red-500" />
-                            </Button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Transcription History */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <TranscriptionHistory 
+              onLoadHistory={handleLoadHistory}
+              darkMode={darkMode}
+              isLoadingHistory={isLoadingHistory}
+            />
+          </motion.div>
 
-          {/* File Upload */}
+          {/* File Upload Section */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -362,7 +304,7 @@ function App() {
                   Upload Audio Recording
                 </CardTitle>
                 <CardDescription>
-                  Upload a doctor-patient conversation for AI-powered transcription
+                  Upload a doctor-patient conversation for AI-powered transcription and SOAP note generation
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -375,7 +317,7 @@ function App() {
             </Card>
           </motion.section>
 
-          {/* Loading */}
+          {/* Loading State */}
           <AnimatePresence>
             {isLoading && (
               <motion.div
@@ -389,7 +331,7 @@ function App() {
                     <div>
                       <AlertTitle>Processing your audio...</AlertTitle>
                       <AlertDescription>
-                        AI is transcribing and extracting medical entities
+                        AI is transcribing the conversation and extracting medical entities
                       </AlertDescription>
                     </div>
                   </div>
@@ -398,7 +340,7 @@ function App() {
             )}
           </AnimatePresence>
 
-          {/* Error */}
+          {/* Error Message */}
           <AnimatePresence>
             {error && (
               <motion.div
@@ -415,9 +357,34 @@ function App() {
             )}
           </AnimatePresence>
 
+          {/* Loading from History */}
+          <AnimatePresence>
+            {isLoadingHistory && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+              >
+                <Alert className="bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600" />
+                    <div>
+                      <AlertTitle className="text-blue-900 dark:text-blue-200">
+                        Loading from History
+                      </AlertTitle>
+                      <AlertDescription className="text-blue-800 dark:text-blue-300">
+                        Retrieving previous transcription...
+                      </AlertDescription>
+                    </div>
+                  </div>
+                </Alert>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           {/* Success Message */}
           <AnimatePresence>
-            {result && !error && (
+            {result && !error && !isLoadingHistory && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -430,7 +397,7 @@ function App() {
                     : "bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700"
                 }>
                   {isFromHistory ? (
-                    <HistoryIcon className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                    <History className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                   ) : (
                     <CheckCircle className="h-4 w-4 text-green-600 dark:text-green-400" />
                   )}
@@ -447,7 +414,7 @@ function App() {
                       : "text-green-800 dark:text-green-300"
                   }>
                     {processingTime && `Processed in ${processingTime.toFixed(2)} seconds`}
-                    {fileSize && ` • ${formatFileSize(fileSize)}`}
+                    {fileSize && ` • File size: ${formatFileSize(fileSize)}`}
                   </AlertDescription>
                 </Alert>
 
@@ -456,16 +423,16 @@ function App() {
                   variant="destructive"
                   className="w-full sm:w-auto"
                 >
-                  <X className="w-4 w-4 mr-2" />
+                  <X className="w-4 h-4 mr-2" />
                   Clear Results
                 </Button>
               </motion.div>
             )}
           </AnimatePresence>
 
-          {/* Results */}
+          {/* Results Section */}
           <AnimatePresence>
-            {result && (
+            {result && !isLoadingHistory && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -482,7 +449,9 @@ function App() {
                     <Card>
                       <CardHeader>
                         <CardTitle>AI Confidence Metrics</CardTitle>
-                        <CardDescription>Machine learning confidence scores</CardDescription>
+                        <CardDescription>
+                          Machine learning confidence scores for transcription quality
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -525,23 +494,17 @@ function App() {
                 >
                   <Card>
                     <CardHeader>
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <CardTitle>Transcription</CardTitle>
-                          <CardDescription>Audio-to-text conversion</CardDescription>
-                        </div>
-                        <Button variant="outline" size="sm" onClick={copyTranscription}>
-                          <Copy className="w-4 h-4 mr-2" />
-                          Copy
-                        </Button>
-                      </div>
+                      <CardTitle>Transcription</CardTitle>
+                      <CardDescription>
+                        Complete audio-to-text conversion
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <div className="prose prose-sm max-w-none dark:prose-invert">
-                        <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 leading-relaxed">
-                          {result.transcription}
-                        </p>
-                      </div>
+                      <TranscriptionDisplay 
+                        transcription={result.transcription}
+                        processingTime={processingTime}
+                        audioFile={currentAudioFile}
+                      />
                     </CardContent>
                   </Card>
                 </motion.section>
@@ -561,15 +524,22 @@ function App() {
                         Medical Entities
                       </h2>
                       <p className="text-gray-600 dark:text-gray-400">
-                        AI-extracted medical information
+                        AI-extracted symptoms, medications, conditions, and procedures
                       </p>
                     </div>
 
-                    <EntityCategorySummary entities={getFormattedEntities()} />
+                    {/* Entity Summary */}
+                    <EntityCategorySummary 
+                      entities={getFormattedEntities()}
+                    />
 
+                    {/* Entity List */}
                     <Card>
                       <CardHeader>
                         <CardTitle>Extracted Entities</CardTitle>
+                        <CardDescription>
+                          Click any entity to see details
+                        </CardDescription>
                       </CardHeader>
                       <CardContent>
                         <EntityBadgeList
@@ -577,6 +547,9 @@ function App() {
                           variant="default"
                           showIcons
                           showConfidence
+                          onEntityClick={(entity) => {
+                            console.log('Entity clicked:', entity)
+                          }}
                         />
                       </CardContent>
                     </Card>
@@ -594,8 +567,12 @@ function App() {
                   <SOAPNoteCard
                     soapNote={result.soap_note}
                     editable
-                    onUpdate={(updated) => {
-                      setResult({ ...result, soap_note: updated })
+                    onUpdate={(updatedNote) => {
+                      console.log('SOAP note updated:', updatedNote)
+                      setResult({
+                        ...result,
+                        soap_note: updatedNote
+                      })
                     }}
                   />
                 </motion.section>
@@ -609,7 +586,7 @@ function App() {
         <footer className="bg-white/50 dark:bg-gray-900/50 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 mt-16">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-              MediScribe AI • Powered by OpenAI Whisper & scispaCy • 2026
+              MediScribe AI • Powered by OpenAI Whisper & scispaCy • Portfolio Project 2026
             </p>
           </div>
         </footer>
