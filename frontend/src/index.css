@@ -1,319 +1,74 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 20 14.3% 4.1%;
-    --card: 0 0% 100%;
-    --card-foreground: 20 14.3% 4.1%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 20 14.3% 4.1%;
-    --primary: 24 9.8% 10%;
-    --primary-foreground: 60 9.1% 97.8%;
-    --secondary: 60 4.8% 95.9%;
-    --secondary-foreground: 24 9.8% 10%;
-    --muted: 60 4.8% 95.9%;
-    --muted-foreground: 25 5.3% 44.7%;
-    --accent: 60 4.8% 95.9%;
-    --accent-foreground: 24 9.8% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 20 5.9% 90%;
-    --input: 20 5.9% 90%;
-    --ring: 20 14.3% 4.1%;
-    --radius: 0.5rem;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
+    --background:             210 40% 96%;
+    --foreground:             215 35% 12%;
+    --card:                   0 0% 100%;
+    --card-foreground:        215 35% 12%;
+    --popover:                0 0% 100%;
+    --popover-foreground:     215 35% 12%;
+    --primary:                221 73% 48%;
+    --primary-foreground:     0 0% 100%;
+    --secondary:              210 40% 96%;
+    --secondary-foreground:   215 35% 12%;
+    --muted:                  210 40% 96%;
+    --muted-foreground:       215 16% 57%;
+    --accent:                 158 88% 36%;
+    --accent-foreground:      0 0% 100%;
+    --destructive:            0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border:                 214 32% 91%;
+    --input:                  214 32% 91%;
+    --ring:                   221 73% 48%;
+    --radius:                 0.625rem;
   }
 
-  .dark {
-    --background: 20 14.3% 4.1%;
-    --foreground: 60 9.1% 97.8%;
-    --card: 20 14.3% 4.1%;
-    --card-foreground: 60 9.1% 97.8%;
-    --popover: 20 14.3% 4.1%;
-    --popover-foreground: 60 9.1% 97.8%;
-    --primary: 60 9.1% 97.8%;
-    --primary-foreground: 24 9.8% 10%;
-    --secondary: 12 6.5% 15.1%;
-    --secondary-foreground: 60 9.1% 97.8%;
-    --muted: 12 6.5% 15.1%;
-    --muted-foreground: 24 5.4% 63.9%;
-    --accent: 12 6.5% 15.1%;
-    --accent-foreground: 60 9.1% 97.8%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 60 9.1% 97.8%;
-    --border: 12 6.5% 15.1%;
-    --input: 12 6.5% 15.1%;
-    --ring: 24 5.7% 82.9%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-}
-
-@layer base {
   * {
-    @apply border-border;
+    @apply border-border box-border;
   }
+
+  /* Remove any max-width shadcn applies globally */
+  html, body, #root {
+    @apply w-full h-full m-0 p-0;
+  }
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-}
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
-}
-
-/* Your existing styles below this line */
-
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Fade-in animation for results */
-.fade-in {
-  animation: fadeIn 0.4s ease-in;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Slide-in animation for cards */
-.slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Smooth transitions for all interactive elements */
-button, a, .transition-all {
-  transition: all 0.2s ease-in-out;
-}
-
-/* Hover effect for buttons */
-button:hover {
-  transform: translateY(-1px);
-}
-
-button:active {
-  transform: translateY(0);
-}
-
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Loading pulse animation */
-.pulse-animation {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
-}
-
-/* Scale animation for badges */
-.scale-in {
-  animation: scaleIn 0.2s ease-out;
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Staggered fade-in for entity badges */
-.stagger-fade-in {
-  animation: fadeIn 0.3s ease-in backwards;
-}
-
-.stagger-fade-in:nth-child(1) { animation-delay: 0.05s; }
-.stagger-fade-in:nth-child(2) { animation-delay: 0.1s; }
-.stagger-fade-in:nth-child(3) { animation-delay: 0.15s; }
-.stagger-fade-in:nth-child(4) { animation-delay: 0.2s; }
-.stagger-fade-in:nth-child(5) { animation-delay: 0.25s; }
-.stagger-fade-in:nth-child(n+6) { animation-delay: 0.3s; }
-
-/* Smooth progress bar animation */
-.progress-bar {
-  transition: width 0.5s ease-out;
-}
-
-/* Print Styles - Add these to the end of your index.css file */
-
-@media print {
-  /* Reset body */
-  body {
-    background: white !important;
-    margin: 0;
-    padding: 0;
+    @apply bg-[#FFFFFF] text-[#0D1B2A] font-sans;
+    font-size: 14px;
+    line-height: 1.6;
   }
 
-  /* Hide header, upload, history, and other UI elements */
-  header,
-  nav,
-  .print\\:hidden {
-    display: none !important;
-  }
-
-  /* Hide gradient background */
-  body > div > div {
-    background: white !important;
-    padding: 0 !important;
-    min-height: auto !important;
-  }
-
-  /* Ensure SOAP note container is visible */
-  .print-soap-note {
-    display: block !important;
-    background: white !important;
-    box-shadow: none !important;
-    border-radius: 0 !important;
-    margin: 0 !important;
-    padding: 20mm 15mm !important;
-  }
-
-  /* Remove all background colors except section highlights */
-  * {
-    box-shadow: none !important;
-  }
-
-  /* Force black text for readability */
-  h1, h2, h3, h4, h5, h6, p, span, div, li {
-    color: black !important;
-  }
-
-  /* Keep section colors subtle but visible */
-  .bg-blue-50,
-  .dark\\:bg-blue-900\\ {
-    background: #eff6ff !important;
-  }
-
-  .bg-green-50,
-  .dark\\:bg-green-900\\ {
-    background: #f0fdf4 !important;
-  }
-
-  .bg-yellow-50,
-  .dark\\:bg-yellow-900\\{
-    background: #fefce8 !important;
-  }
-
-  .bg-purple-50,
-  .dark\\:bg-purple-900\\ {
-    background: #faf5ff !important;
-  }
-
-  /* Keep border colors */
-  .border-blue-500,
-  .dark\\:border-blue-400 {
-    border-color: #3b82f6 !important;
-  }
-
-  .border-green-500,
-  .dark\\:border-green-400 {
-    border-color: #22c55e !important;
-  }
-
-  .border-yellow-500,
-  .dark\\:border-yellow-400 {
-    border-color: #eab308 !important;
-  }
-
-  .border-purple-500,
-  .dark\\:border-purple-400 {
-    border-color: #a855f7 !important;
-  }
-
-  /* Prevent page breaks inside sections */
-  .soap-section {
-    page-break-inside: avoid;
-    margin-bottom: 15px !important;
-  }
-
-  /* Page settings */
-  @page {
-    margin: 15mm;
-    size: A4 portrait;
-  }
-
-  /* Print header styling */
-  .print-header {
-    border-bottom: 2px solid #000 !important;
-    padding-bottom: 10px !important;
-    margin-bottom: 20px !important;
-  }
-
-  /* Hide dark mode specific elements */
-  .dark\\:bg-gray-800,
-  .dark\\:bg-gray-700,
-  .dark\\:text-white,
-  .dark\\:text-gray-300 {
-    background: white !important;
-    color: black !important;
-  }
-
-  /* Ensure lists and paragraphs print correctly */
-  ul, ol {
-    margin-left: 20px;
-  }
-
-  li {
-    margin-bottom: 5px;
-  }
-
-  p {
-    margin-bottom: 10px;
-  }
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 }

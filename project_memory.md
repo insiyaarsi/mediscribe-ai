@@ -2470,3 +2470,9 @@ When this project is complete, the student should be able to say:
 *Current Status: 65% complete, ahead of schedule*
 *System Status: Backend fully functional with 700+ medical terms, 70% categorization accuracy. Frontend complete with React, Tailwind CSS, full API integration, dark mode, animations, audio playback, and professional UI polish. End-to-end pipeline working flawlessly with excellent UX.*
 ---
+
+Personal Notes - 21st Feb 2026
+Have removed the entire frontend folder from this project because remaking it from ground up. Also 
+i will be commiting whatever changes to a separate branch called "recent-updates". 
+The main branch is still up to date with what was done many weeks back, alon gwith the previous UI version. 
+If and when these updates/changes that i am doing today have to be committed onto the "main" branch, at that time i first need to delete the frontend folder completly and then push the changes. 
