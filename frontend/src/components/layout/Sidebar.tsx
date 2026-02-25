@@ -28,9 +28,12 @@ export default function Sidebar() {
   const { currentPage, setPage, sidebarCollapsed, toggleSidebar, history } = useAppStore()
 
   const handleNav = (id: NavItem['id']) => {
-    if (id === 'logout') return
-    setPage(id as AppPage)
+  if (id === 'logout') {
+    setPage('login')
+    return
   }
+  setPage(id as AppPage)
+}
 
   return (
     <aside

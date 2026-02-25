@@ -70,12 +70,15 @@ export default function TranscribeButton() {
 
       // Short pause so the bar hits 100% visually before disappearing
       setTimeout(() => {
-        setResult(result)
-        addToHistory(result, selectedFile)
-        toast.success('Transcription complete', {
-          description: `${result.entities.length} medical entities extracted`,
-        })
-      }, 400)
+  setResult(result)
+  addToHistory(result, selectedFile)
+  const { notifications } = useAppStore.getState()
+  if (notifications.transcriptDone) {
+    toast.success('Transcription complete', {
+      description: `${result.entities.length} medical entities extracted`,
+    })
+  }
+}, 400)
     } catch (err) {
       stageRef.current.forEach(clearTimeout)
       const msg = err instanceof Error ? err.message : 'Transcription failed. Please try again.'

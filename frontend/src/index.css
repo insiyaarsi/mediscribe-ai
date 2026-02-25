@@ -72,3 +72,46 @@
   ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
   ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 }
+
+/* Dark-mode surface + text harmonization for app content panels */
+html.dark main .bg-white {
+  background-color: #111827 !important;
+}
+
+html.dark main .bg-\[\#F7FAFC\],
+html.dark main .bg-\[\#FAFAFA\] {
+  background-color: #0f172a !important;
+}
+
+html.dark main .border-\[\#E2E8F0\] {
+  border-color: #334155 !important;
+}
+
+html.dark main .text-\[\#0D1B2A\] {
+  color: #e2e8f0 !important;
+}
+
+html.dark main .text-\[\#4A5568\] {
+  color: #cbd5e1 !important;
+}
+
+html.dark main .text-\[\#94A3B8\] {
+  color: #94a3b8 !important;
+}
+
+html.dark main input,
+html.dark main select,
+html.dark main textarea {
+  background-color: #0b1220 !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
+}
+
+html.dark main input::placeholder,
+html.dark main textarea::placeholder {
+  color: #64748b !important;
+}
+
+html.dark main tr:hover {
+  background-color: #0b1220 !important;
+}

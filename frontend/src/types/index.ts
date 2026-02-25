@@ -59,4 +59,4 @@ export interface HistoryEntry {
 
 export type UploadState = 'idle' | 'selected' | 'processing' | 'done' | 'error'
 
-export type AppPage = 'dashboard' | 'history' | 'settings'
+export type AppPage = 'login' | 'dashboard' | 'history' | 'settings'

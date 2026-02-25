@@ -1,14 +1,16 @@
 import { getEntityCategory, getEntityStyles } from '../../../lib/utils'
 import type { MedicalEntity } from '../../../types'
 import { cn } from '../../../lib/utils'
+import { useAppStore } from '../../../store/appStore'
 
 interface Props {
   entity: MedicalEntity
 }
 
 export default function EntityChip({ entity }: Props) {
+  const { preferences } = useAppStore()
   const category = getEntityCategory(entity.label)
-  const styles   = getEntityStyles(category)
+  const styles   = getEntityStyles(category, preferences.darkMode)
 
   return (
     <span

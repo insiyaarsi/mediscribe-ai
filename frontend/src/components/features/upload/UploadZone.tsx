@@ -178,7 +178,7 @@ export default function UploadZone() {
           <Music size={22} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-[14px] text-[#0D1B2A] truncate">
+          <div  style={{color: '#000000'}} className="font-semibold text-[14px] truncate">
             {selectedFile?.name}
           </div>
           <div className="font-mono text-[12px] text-[#94A3B8] mt-1">

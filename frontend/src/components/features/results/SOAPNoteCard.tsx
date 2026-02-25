@@ -31,7 +31,11 @@ function toPlainText(value: unknown): string {
   return String(value ?? '')
 }
 
-export default function SOAPNoteCard() {
+interface SOAPNoteCardProps {
+  compact?: boolean
+}
+
+export default function SOAPNoteCard({ compact: _compact = false }: SOAPNoteCardProps) {
   const { transcriptionResult } = useAppStore()
   const [copied, setCopied]     = useState(false)
   const [editing, setEditing]   = useState<Record<string, string>>({})

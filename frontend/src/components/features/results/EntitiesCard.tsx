@@ -1,5 +1,5 @@
 import { useAppStore } from '../../../store/appStore'
-import { groupEntities, getEntityStyles, getEntityCategory } from '../../../lib/utils'
+import { groupEntities, getEntityStyles } from '../../../lib/utils'
 import EntityChip from './EntityChip'
 import type { EntityCategory } from '../../../types'
 
@@ -16,7 +16,11 @@ const CATEGORY_ORDER: EntityCategory[] = [
   'SYMPTOM', 'MEDICATION', 'CONDITION', 'PROCEDURE', 'TEST', 'OTHER'
 ]
 
-export default function EntitiesCard() {
+interface EntitiesCardProps {
+  compact?: boolean
+}
+
+export default function EntitiesCard({ compact: _compact = false }: EntitiesCardProps) {
   const { transcriptionResult } = useAppStore()
 
   if (!transcriptionResult) return null
