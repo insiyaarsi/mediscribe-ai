@@ -1,11 +1,19 @@
 import { useAppStore } from '../../../store/appStore'
 import { FileText, Activity, Clock } from 'lucide-react'
 
+function toConfidencePercent(score: number): number {
+  const base = score <= 1 ? score * 100 : score
+  const clamped = Math.min(100, Math.max(1, base))
+  return Math.round(clamped)
+}
+
 export default function StatsBar() {
   const { history } = useAppStore()
 
   const avgConfidence = history.length > 0
-    ? Math.round(history.reduce((sum, h) => sum + h.confidenceScore, 0) / history.length * 100)
+    ? Math.round(
+      history.reduce((sum, h) => sum + toConfidencePercent(h.confidenceScore), 0) / history.length
+    )
     : 0
 
   const timeSaved = history.length * 5

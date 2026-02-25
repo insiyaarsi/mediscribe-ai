@@ -61,7 +61,7 @@
   }
 
   body {
-    @apply bg-[#FFFFFF] text-[#0D1B2A] font-sans;
+    @apply bg-[#F0F4F8] text-[#0D1B2A] font-sans;
     font-size: 14px;
     line-height: 1.6;
   }

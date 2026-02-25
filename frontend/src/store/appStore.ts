@@ -67,7 +67,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       patientId:       generatePatientId(),
       duration:        `${Math.floor(file.size / 100000)}:${String(Math.floor(Math.random() * 59)).padStart(2,'0')}`,
       entityCount:     result.entities.length,
-      confidenceScore: result.confidence_score,
+      confidenceScore: result.confidence_score > 1 ? result.confidence_score : result.confidence_score * 100,
       status:          'complete',
       result,
     }
