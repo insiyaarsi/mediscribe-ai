@@ -1,110 +1,117 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap');
+@import "tailwindcss";
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Fade-in animation for results */
-.fade-in {
-  animation: fadeIn 0.4s ease-in;
-}
-
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(15px);
+@layer base {
+  :root {
+    --background:             210 40% 96%;
+    --foreground:             215 35% 12%;
+    --card:                   0 0% 100%;
+    --card-foreground:        215 35% 12%;
+    --popover:                0 0% 100%;
+    --popover-foreground:     215 35% 12%;
+    --primary:                221 73% 48%;
+    --primary-foreground:     0 0% 100%;
+    --secondary:              210 40% 96%;
+    --secondary-foreground:   215 35% 12%;
+    --muted:                  210 40% 96%;
+    --muted-foreground:       215 16% 57%;
+    --accent:                 158 88% 36%;
+    --accent-foreground:      0 0% 100%;
+    --destructive:            0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --border:                 214 32% 91%;
+    --input:                  214 32% 91%;
+    --ring:                   221 73% 48%;
+    --radius:                 0.625rem;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+
+  * {
+    @apply border-border box-border;
   }
-}
 
-/* Slide-in animation for cards */
-.slide-in {
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
+  /* Remove any max-width shadcn applies globally */
+  html, body, #root {
+    @apply w-full h-full m-0 p-0;
   }
-  to {
-    opacity: 1;
-    transform: translateX(0);
+
+  body {
+    @apply bg-[#F0F4F8] text-[#0D1B2A] font-sans;
+    font-size: 14px;
+    line-height: 1.6;
   }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #CBD5E0; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
 }
 
-/* Smooth transitions for all interactive elements */
-button, a, .transition-all {
-  transition: all 0.2s ease-in-out;
+/* Dark-mode surface + text harmonization for app content panels */
+html.dark main .bg-white {
+  background-color: #111827 !important;
 }
 
-/* Hover effect for buttons */
-button:hover {
-  transform: translateY(-1px);
+html.dark main .bg-\[\#F7FAFC\],
+html.dark main .bg-\[\#FAFAFA\] {
+  background-color: #0f172a !important;
 }
 
-button:active {
-  transform: translateY(0);
+html.dark main .border-\[\#E2E8F0\] {
+  border-color: #334155 !important;
 }
 
-/* Smooth scroll behavior */
-html {
-  scroll-behavior: smooth;
+html.dark main .text-\[\#0D1B2A\] {
+  color: #e2e8f0 !important;
 }
 
-/* Loading pulse animation */
-.pulse-animation {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+html.dark main .text-\[\#4A5568\] {
+  color: #cbd5e1 !important;
 }
 
-@keyframes pulse {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.5;
-  }
+html.dark main .text-\[\#94A3B8\] {
+  color: #94a3b8 !important;
 }
 
-/* Scale animation for badges */
-.scale-in {
-  animation: scaleIn 0.2s ease-out;
+html.dark main input,
+html.dark main select,
+html.dark main textarea {
+  background-color: #0b1220 !important;
+  border-color: #334155 !important;
+  color: #e2e8f0 !important;
 }
 
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+html.dark main input::placeholder,
+html.dark main textarea::placeholder {
+  color: #64748b !important;
 }
 
-/* Staggered fade-in for entity badges */
-.stagger-fade-in {
-  animation: fadeIn 0.3s ease-in backwards;
-}
-
-.stagger-fade-in:nth-child(1) { animation-delay: 0.05s; }
-.stagger-fade-in:nth-child(2) { animation-delay: 0.1s; }
-.stagger-fade-in:nth-child(3) { animation-delay: 0.15s; }
-.stagger-fade-in:nth-child(4) { animation-delay: 0.2s; }
-.stagger-fade-in:nth-child(5) { animation-delay: 0.25s; }
-.stagger-fade-in:nth-child(n+6) { animation-delay: 0.3s; }
-
-/* Smooth progress bar animation */
-.progress-bar {
-  transition: width 0.5s ease-out;
+html.dark main tr:hover {
+  background-color: #0b1220 !important;
 }
