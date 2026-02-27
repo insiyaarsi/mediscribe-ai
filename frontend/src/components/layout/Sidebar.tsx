@@ -25,7 +25,8 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function Sidebar() {
-  const { currentPage, setPage, sidebarCollapsed, toggleSidebar, history } = useAppStore()
+  const { currentPage, setPage, sidebarCollapsed, toggleSidebar, history, profile } = useAppStore()
+  const initials = `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase()
 
   const handleNav = (id: NavItem['id']) => {
   if (id === 'logout') {
@@ -151,8 +152,12 @@ export default function Sidebar() {
             'whitespace-nowrap'
           )}
         >
-          <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#1A56DB] to-[#7C3AED] flex items-center justify-center flex-shrink-0 border border-white/10">
-            <span className="font-head text-[11px] font-bold text-white">IA</span>
+          <div className="w-[30px] h-[30px] rounded-full overflow-hidden bg-gradient-to-br from-[#1A56DB] to-[#7C3AED] flex items-center justify-center flex-shrink-0 border border-white/10">
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt="User avatar" className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-head text-[11px] font-bold text-white">{initials || 'U'}</span>
+            )}
           </div>
           <div
             className={cn(
@@ -161,9 +166,9 @@ export default function Sidebar() {
             )}
           >
             <div className="text-[13px] font-semibold text-[#C5D8EE] truncate">
-              Insiya Arsi
+              {`${profile.firstName} ${profile.lastName}`.trim()}
             </div>
-            <div className="text-[11px] text-[#4A6080]">Physician</div>
+            <div className="text-[11px] text-[#4A6080]">{profile.specialty || 'Physician'}</div>
           </div>
         </div>
       </div>
