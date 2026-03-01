@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Response
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +10,7 @@ from transcription import transcribe_audio_realtime
 from entity_extraction import extract_medical_entities
 from soap_generator import generate_soap_note, format_soap_note_text
 from content_validator import validate_medical_content
+
 
 # Create the FastAPI application
 app = FastAPI(
