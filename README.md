@@ -2,6 +2,9 @@
 
 A full-stack clinical documentation system that converts doctor–patient audio conversations into structured SOAP notes using speech recognition, biomedical NLP, and LLM-generated clinical prose.
 
+![Dashboard](docs/screenshots/Dashboard-1.png)
+![Dashboard](docs/screenshots/Dashboard-2.png)
+
 [![Status](https://img.shields.io/badge/Status-Active%20Development-success)](https://github.com/insiyaarsi/mediscribe-ai)
 [![Stack](https://img.shields.io/badge/Stack-React%20%7C%20FastAPI%20%7C%20Groq-blue)](https://github.com/insiyaarsi/mediscribe-ai)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
