@@ -70,15 +70,25 @@ export default function TranscribeButton() {
 
       // Short pause so the bar hits 100% visually before disappearing
       setTimeout(() => {
-  setResult(result)
-  addToHistory(result, selectedFile)
-  const { notifications } = useAppStore.getState()
-  if (notifications.transcriptDone) {
-    toast.success('Transcription complete', {
-      description: `${result.entities.length} medical entities extracted`,
-    })
-  }
-}, 400)
+        // Guard: backend may reject non-medical audio with success: false
+        const raw = result as typeof result & { success?: boolean; message?: string }
+        if (raw.success === false) {
+          setError(raw.message ?? 'Non-medical content detected. Please upload clinical audio only.')
+          toast.error('Content validation failed', {
+            description: raw.message ?? 'Non-medical content detected.',
+          })
+          return
+        }
+
+        setResult(result)
+        addToHistory(result, selectedFile)
+        const { notifications } = useAppStore.getState()
+        if (notifications.transcriptDone) {
+          toast.success('Transcription complete', {
+            description: `${result.entities.length} medical entities extracted`,
+          })
+        }
+      }, 400)
     } catch (err) {
       stageRef.current.forEach(clearTimeout)
       const msg = err instanceof Error ? err.message : 'Transcription failed. Please try again.'

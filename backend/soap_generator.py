@@ -1,207 +1,335 @@
 """
 SOAP note generation from categorized medical entities.
-Converts extracted entities into structured clinical documentation.
+Primary path: Groq llama-3.1-70b-versatile for clinical prose.
+Fallback path: Rule-based generation if API call fails.
 """
+from dotenv import load_dotenv
+load_dotenv()
 
+import os
+import json
 from datetime import datetime
+from groq import Groq
 
 
-def generate_soap_note(transcription, categorized_entities):
+
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
+
+def generate_soap_note(transcription: str, categorized_entities: dict) -> dict:
     """
-    Generate a SOAP (Subjective, Objective, Assessment, Plan) note
-    from transcribed text and categorized medical entities.
-    
+    Generate a SOAP note from transcribed text and categorized medical entities.
+
+    Attempts Groq generation first. If the API call fails for any
+    reason (network error, invalid key, malformed JSON response, etc.) the
+    function falls back to the rule-based generator so the rest of the
+    pipeline always receives a valid SOAP dict.
+
     Args:
-        transcription (str): Full transcription text
-        categorized_entities (dict): Categorized medical entities
-        
+        transcription: Full transcription text.
+        categorized_entities: Dict of entity lists keyed by category name
+                              (symptoms, conditions, medications, procedures).
+
     Returns:
-        dict: Structured SOAP note
+        Dict with keys: generated_at, subjective, objective, assessment, plan.
+        Each section value is either a clinical prose string (Groq path) or
+        a structured dict (fallback path) — the frontend handles both shapes.
     """
-    
-    # Extract entity lists
+    try:
+        soap = _generate_with_groq(transcription, categorized_entities)
+        soap["generated_at"] = datetime.now().isoformat()
+        soap["source"] = "groq-llama-3.1-70b-versatile"
+        print("SOAP note generated via Groq llama-3.3-70b-versatile")
+        return soap
+    except Exception as exc:
+        print(f"Groq SOAP generation failed: {exc}")
+        print("Falling back to rule-based SOAP generation")
+        return _generate_fallback(transcription, categorized_entities)
+
+
+# ---------------------------------------------------------------------------
+# Groq-llama-3.1-70b-versatile-mini path
+# ---------------------------------------------------------------------------
+
+def _build_entity_summary(categorized_entities: dict) -> str:
+    """
+    Convert the categorized entity dict into a compact plain-text summary
+    suitable for inclusion in the GPT prompt.
+    """
+    lines = []
+    label_map = {
+        "symptoms": "Symptoms",
+        "conditions": "Conditions / Diagnoses",
+        "medications": "Medications",
+        "procedures": "Procedures",
+        "anatomical": "Anatomical Sites",
+        "modifiers": "Clinical Modifiers",
+    }
+    for key, label in label_map.items():
+        entities = categorized_entities.get(key, [])
+        if entities:
+            terms = ", ".join(e["text"] for e in entities)
+            lines.append(f"{label}: {terms}")
+    return "\n".join(lines) if lines else "No specific entities extracted."
+
+
+_SYSTEM_PROMPT = """You are a clinical documentation assistant that enhances
+physician SOAP notes to documentation-grade quality. You operate as a
+documentation enhancer: you structure and complete the note based on the
+transcript, and you add standard-of-care items that are clinically implied
+by the presentation even if not explicitly spoken — stating them as direct
+actions without labelling them as protocol.
+
+CRITICAL OUTPUT RULES:
+- Return ONLY valid JSON with exactly four keys: subjective, objective,
+  assessment, plan. No markdown fences, no preamble, no text outside the JSON.
+- Never repeat the same clinical information across sections.
+- Never fabricate patient-specific data (vitals, measurements, test results).
+- If a specific data point is absent from the transcript, state it as
+  "not documented in transcript."
+- Normalise all medication names to standard formulary spelling
+  (e.g. "lisinopril" not "lysinoprell", "atorvastatin" not "adervastatin").
+  If a medication name is phonetically recognisable, correct it silently.
+
+SUBJECTIVE:
+- Report only what the patient or clinician stated. Zero diagnostic
+  interpretation or clinical reasoning in this section.
+- Structure the HPI to cover all OPQRST elements for any chief complaint,
+  but write as a single fluent clinical paragraph — do not mechanically
+  label each element. The paragraph should read as an experienced clinician
+  wrote it, not as a template being filled in.
+- Cover: onset (when and how it started), triggering event if known,
+  quality, radiation, severity (numeric scale if mentioned), timing
+  (constant vs intermittent), provocation and palliation.
+- For each OPQRST element genuinely absent from the transcript, incorporate
+  a natural "not documented" statement within the prose rather than a
+  labelled line. Example: "Aggravating and relieving factors were not
+  documented." Do not say "onset not further documented" if onset was
+  already stated — instead flag the triggering event specifically if unknown.
+- Include associated symptoms, and relevant past medical history, surgical
+  history, medications, and allergies if mentioned.
+
+OBJECTIVE:
+- Report only measurable, observable findings. Zero diagnostic interpretation.
+- List all vital signs mentioned. For each standard vital sign not in the
+  transcript (heart rate, blood pressure, respiratory rate, oxygen
+  saturation, temperature), state it as "not documented in transcript."
+- For ECG findings: report leads affected, type of change (elevation vs
+  depression), magnitude, and rhythm if mentioned. For any detail not
+  provided, state: "Specific leads involved, morphology, magnitude, and
+  rhythm not documented in transcript."
+- Do not use phrases like "consistent with" or "indicative of" — those
+  belong in Assessment only.
+- Write as a single fluent clinical paragraph in third-person.
+
+ASSESSMENT:
+- Provide a prioritised numbered problem list from most to least urgent.
+- For each problem: state the diagnosis using precise clinical terminology,
+  then one sentence of reasoning drawn strictly from the S and O data.
+  Use precision language scaled to the strength of evidence:
+  "highly concerning for", "likely", "consistent with", "suspicious for."
+- Observe strict diagnostic taxonomy: never list a subtype parallel to its
+  parent category. For ACS, the working diagnosis should specify the likely
+  subtype (STEMI vs NSTEMI vs unstable angina) with the others as
+  differential within that category.
+- For high-risk chief complaints, include a brief differential of the two
+  or three most important alternative diagnoses. When ranking alternatives
+  lower, use "less likely given current symptom description" or "based on
+  currently available information" — never imply exclusion based on absence
+  of documentation, as undocumented does not mean absent.
+- Write as a structured paragraph with numbered problems. No bullet points.
+
+PLAN:
+- Address each numbered Assessment problem in order.
+- State all actions directly and confidently. Do not label any action as
+  "per standard protocol" — simply document the action as a clinician would.
+- For acute or high-risk presentations, include standard-of-care items
+  clinically implied by the scenario even if not spoken in the transcript:
+  cardiac monitoring, IV access, serial ECGs, troponin and cardiac
+  biomarkers, NPO status, supplemental oxygen if hypoxic, anticoagulation
+  if indicated.
+- Include medications with dose and route, investigations ordered,
+  monitoring, disposition, urgency classification, patient counselling, and
+  risk discussion where clinically relevant.
+- Write as a single fluent clinical paragraph in third-person."""
+
+
+def _generate_with_groq(transcription: str, categorized_entities: dict) -> dict:
+    """
+    Call Groq API and parse the JSON response into a SOAP dict.
+
+    Raises an exception if the API call fails or the response cannot be
+    parsed as valid JSON with the required four keys — the caller catches
+    this and falls back to rule-based generation.
+    """
+    # Prefer GROQ_API_KEY, but allow OPENAI_API_KEY for backward compatibility
+    # with older project setup/docs.
+    api_key = os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise EnvironmentError(
+            "Missing API key. Set GROQ_API_KEY (preferred) in your environment or .env file."
+        )
+
+    client = Groq(api_key=api_key)
+    entity_summary = _build_entity_summary(categorized_entities)
+
+    user_message = (
+        f"Transcript:\n{transcription}\n\n"
+        f"Extracted medical entities:\n{entity_summary}\n\n"
+        "Generate the SOAP note as JSON."
+    )
+
+    response = client.chat.completions.create(
+        model="llama-3.3-70b-versatile",
+        messages=[
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user_message},
+        ],
+        temperature=0.3,
+        max_tokens=1000,
+    )
+
+    raw = response.choices[0].message.content
+
+    # Strip markdown code fences that the model sometimes adds despite instructions.
+    raw = raw.replace("```json", "").replace("```", "").strip()
+
+    soap = json.loads(raw)
+
+    # Validate the four required keys are present.
+    required_keys = {"subjective", "objective", "assessment", "plan"}
+    missing = required_keys - soap.keys()
+    if missing:
+        raise ValueError(f"Groq response missing required SOAP keys: {missing}")
+
+    return soap
+
+
+# ---------------------------------------------------------------------------
+# Rule-based fallback path (preserved from original implementation)
+# ---------------------------------------------------------------------------
+
+def _generate_fallback(transcription: str, categorized_entities: dict) -> dict:
+    """
+    Rule-based SOAP generation used when the GPT call fails.
+    Produces a structured dict rather than clinical prose — the frontend
+    renders both shapes correctly.
+    """
     symptoms = categorized_entities.get("symptoms", [])
     conditions = categorized_entities.get("conditions", [])
     medications = categorized_entities.get("medications", [])
     procedures = categorized_entities.get("procedures", [])
-    
-    # Build SOAP sections
-    soap_note = {
+
+    return {
         "generated_at": datetime.now().isoformat(),
-        "subjective": generate_subjective(transcription, symptoms),
-        "objective": generate_objective(procedures),
-        "assessment": generate_assessment(conditions),
-        "plan": generate_plan(medications, procedures)
+        "source": "rule-based-fallback",
+        "subjective": _fallback_subjective(transcription, symptoms),
+        "objective": _fallback_objective(procedures),
+        "assessment": _fallback_assessment(conditions),
+        "plan": _fallback_plan(medications, procedures),
     }
-    
-    return soap_note
 
 
-def generate_subjective(transcription, symptoms):
-    """
-    Generate Subjective section - patient's reported symptoms and history.
-    
-    Args:
-        transcription (str): Full transcription text
-        symptoms (list): List of symptom entities
-        
-    Returns:
-        dict: Subjective section content
-    """
-    
-    # Extract symptom texts
+def _fallback_subjective(transcription: str, symptoms: list) -> dict:
     symptom_list = [s["text"] for s in symptoms]
-    
-    # Create chief complaint (first sentence or symptoms summary)
-    chief_complaint = "Patient reports: " + ", ".join(symptom_list) if symptom_list else "No specific complaints documented."
-    
+    chief_complaint = (
+        "Patient reports: " + ", ".join(symptom_list)
+        if symptom_list
+        else "No specific complaints documented."
+    )
     return {
         "chief_complaint": chief_complaint,
         "symptoms": symptom_list,
         "symptom_count": len(symptom_list),
-        "narrative": transcription.strip()
+        "narrative": transcription.strip(),
     }
 
 
-def generate_objective(procedures):
-    """
-    Generate Objective section - measurable findings and procedures.
-    
-    Args:
-        procedures (list): List of procedure entities
-        
-    Returns:
-        dict: Objective section content
-    """
-    
+def _fallback_objective(procedures: list) -> dict:
     procedure_list = [p["text"] for p in procedures]
-    
-    # Format procedures as clinical findings
     findings = []
     for proc in procedure_list:
-        if proc in ["vitals", "vital signs"]:
+        if proc in ("vitals", "vital signs"):
             findings.append("Vital signs monitored")
-        elif proc in ["monitor", "monitoring"]:
+        elif proc in ("monitor", "monitoring"):
             findings.append("Patient under observation")
         else:
             findings.append(f"{proc.title()} performed")
-    
     return {
         "findings": findings if findings else ["Physical examination performed"],
         "procedures": procedure_list,
-        "procedure_count": len(procedure_list)
+        "procedure_count": len(procedure_list),
     }
 
 
-def generate_assessment(conditions):
-    """
-    Generate Assessment section - diagnoses and conditions.
-    
-    Args:
-        conditions (list): List of condition entities
-        
-    Returns:
-        dict: Assessment section content
-    """
-    
+def _fallback_assessment(conditions: list) -> dict:
     condition_list = [c["text"] for c in conditions]
-    
-    # Create primary diagnosis
     if condition_list:
         primary_diagnosis = condition_list[0]
-        additional_diagnoses = condition_list[1:] if len(condition_list) > 1 else []
+        additional_diagnoses = condition_list[1:]
     else:
         primary_diagnosis = "Assessment pending further evaluation"
         additional_diagnoses = []
-    
     return {
         "primary_diagnosis": primary_diagnosis,
         "additional_diagnoses": additional_diagnoses,
         "all_conditions": condition_list,
-        "condition_count": len(condition_list)
+        "condition_count": len(condition_list),
     }
 
 
-def generate_plan(medications, procedures):
-    """
-    Generate Plan section - treatment plan, medications, follow-up.
-    
-    Args:
-        medications (list): List of medication entities
-        procedures (list): List of procedure entities
-        
-    Returns:
-        dict: Plan section content
-    """
-    
+def _fallback_plan(medications: list, procedures: list) -> dict:
     medication_list = [m["text"] for m in medications]
     procedure_list = [p["text"] for p in procedures]
-    
-    # Build treatment plan
     plan_items = []
-    
     if medication_list:
         plan_items.append(f"Medications: {', '.join(medication_list)}")
-    
     if procedure_list:
         plan_items.append(f"Procedures: {', '.join(procedure_list)}")
-    
     if not plan_items:
         plan_items.append("Continue monitoring and supportive care")
-    
     return {
         "treatment_plan": plan_items,
         "medications": medication_list,
         "follow_up_procedures": procedure_list,
         "medication_count": len(medication_list),
-        "follow_up": "Schedule follow-up appointment as needed"
+        "follow_up": "Schedule follow-up appointment as needed",
     }
 
 
-def format_soap_note_text(soap_note):
+# ---------------------------------------------------------------------------
+# Text formatting utility (kept for export / debug use)
+# ---------------------------------------------------------------------------
+
+def format_soap_note_text(soap_note: dict) -> str:
     """
-    Format SOAP note as readable text for display or export.
-    
-    Args:
-        soap_note (dict): Structured SOAP note
-        
-    Returns:
-        str: Formatted SOAP note text
+    Format a SOAP note dict as readable plain text.
+    Handles both the GPT string shape and the fallback dict shape.
     """
-    
-    text = []
-    text.append("=" * 60)
-    text.append("SOAP NOTE")
-    text.append(f"Generated: {soap_note['generated_at']}")
-    text.append("=" * 60)
-    text.append("")
-    
-    # Subjective
-    text.append("SUBJECTIVE:")
-    text.append(f"  Chief Complaint: {soap_note['subjective']['chief_complaint']}")
-    if soap_note['subjective']['symptoms']:
-        text.append(f"  Symptoms: {', '.join(soap_note['subjective']['symptoms'])}")
-    text.append("")
-    
-    # Objective
-    text.append("OBJECTIVE:")
-    for finding in soap_note['objective']['findings']:
-        text.append(f"  - {finding}")
-    text.append("")
-    
-    # Assessment
-    text.append("ASSESSMENT:")
-    text.append(f"  Primary Diagnosis: {soap_note['assessment']['primary_diagnosis']}")
-    if soap_note['assessment']['additional_diagnoses']:
-        text.append(f"  Additional Diagnoses: {', '.join(soap_note['assessment']['additional_diagnoses'])}")
-    text.append("")
-    
-    # Plan
-    text.append("PLAN:")
-    for item in soap_note['plan']['treatment_plan']:
-        text.append(f"  - {item}")
-    text.append(f"  - {soap_note['plan']['follow_up']}")
-    text.append("")
-    text.append("=" * 60)
-    
-    return "\n".join(text)
+    lines = []
+    lines.append("=" * 60)
+    lines.append("SOAP NOTE")
+    lines.append(f"Generated: {soap_note.get('generated_at', 'unknown')}")
+    source = soap_note.get("source", "unknown")
+    lines.append(f"Source: {source}")
+    lines.append("=" * 60)
+    lines.append("")
+
+    for section in ("subjective", "objective", "assessment", "plan"):
+        lines.append(f"{section.upper()}:")
+        value = soap_note.get(section, "")
+        if isinstance(value, str):
+            # GPT path — plain prose paragraph
+            lines.append(f"  {value}")
+        elif isinstance(value, dict):
+            # Fallback path — structured dict
+            for k, v in value.items():
+                if isinstance(v, list):
+                    lines.append(f"  {k}: {', '.join(str(i) for i in v)}")
+                else:
+                    lines.append(f"  {k}: {v}")
+        lines.append("")
+
+    lines.append("=" * 60)
+    return "\n".join(lines)

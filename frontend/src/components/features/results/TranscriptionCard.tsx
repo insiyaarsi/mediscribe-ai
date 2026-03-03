@@ -3,6 +3,7 @@ import { useAppStore } from '../../../store/appStore'
 import { formatConfidence } from '../../../lib/utils'
 import { Copy, Check } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '../../../lib/utils'
 
 interface TranscriptionCardProps {
   compact?: boolean
@@ -14,6 +15,7 @@ export default function TranscriptionCard({ compact: _compact = false }: Transcr
 
   if (!transcriptionResult) return null
 
+  const dark = preferences.darkMode
   const { transcription, confidence_score } = transcriptionResult
   const confidence = confidence_score > 1 ? confidence_score : confidence_score * 100
 
@@ -36,7 +38,7 @@ export default function TranscriptionCard({ compact: _compact = false }: Transcr
   const renderTranscription = () => {
     const lines = transcription.split('\n').filter(Boolean)
     if (lines.length === 0) return (
-      <p className="font-mono text-[12.5px] leading-[1.85] text-[#4A5568]">
+      <p className={cn('font-mono text-[12.5px] leading-[1.85]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
         {transcription}
       </p>
     )
@@ -47,24 +49,34 @@ export default function TranscriptionCard({ compact: _compact = false }: Transcr
 
       if (doctorMatch) return (
         <p key={i} className="font-mono text-[12.5px] leading-[1.85] mb-2">
-          <span className="inline-block bg-[#EBF3FF] text-[#1A56DB] rounded-[3px] px-[5px] py-[1px] text-[11px] font-semibold mr-2">
+          <span className={cn(
+            'inline-block rounded-[3px] px-[5px] py-[1px] text-[11px] font-semibold mr-2',
+            dark ? 'bg-[#1E3A5F] text-[#93C5FD]' : 'bg-[#EBF3FF] text-[#1A56DB]'
+          )}>
             {doctorMatch[0].replace(':', '')}
           </span>
-          <span className="text-[#4A5568]">{line.replace(doctorMatch[0], '').trim()}</span>
+          <span className={dark ? 'text-[#94A3B8]' : 'text-[#4A5568]'}>
+            {line.replace(doctorMatch[0], '').trim()}
+          </span>
         </p>
       )
 
       if (patientMatch) return (
         <p key={i} className="font-mono text-[12.5px] leading-[1.85] mb-2">
-          <span className="inline-block bg-[#F3F0FF] text-[#7C3AED] rounded-[3px] px-[5px] py-[1px] text-[11px] font-semibold mr-2">
+          <span className={cn(
+            'inline-block rounded-[3px] px-[5px] py-[1px] text-[11px] font-semibold mr-2',
+            dark ? 'bg-[#2E1065] text-[#C4B5FD]' : 'bg-[#F3F0FF] text-[#7C3AED]'
+          )}>
             {patientMatch[0].replace(':', '')}
           </span>
-          <span className="text-[#4A5568]">{line.replace(patientMatch[0], '').trim()}</span>
+          <span className={dark ? 'text-[#94A3B8]' : 'text-[#4A5568]'}>
+            {line.replace(patientMatch[0], '').trim()}
+          </span>
         </p>
       )
 
       return (
-        <p key={i} className="font-mono text-[12.5px] leading-[1.85] text-[#4A5568] mb-2">
+        <p key={i} className={cn('font-mono text-[12.5px] leading-[1.85] mb-2', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
           {line}
         </p>
       )
@@ -72,15 +84,30 @@ export default function TranscriptionCard({ compact: _compact = false }: Transcr
   }
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-[14px] overflow-hidden">
-      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-[#E2E8F0]">
-        <div className="flex items-center gap-2 font-head text-[13px] font-semibold text-[#0D1B2A]">
+    <div className={cn(
+      'border rounded-[14px] overflow-hidden',
+      dark ? 'bg-[#1E293B] border-[#334155]' : 'bg-white border-[#E2E8F0]'
+    )}>
+      <div className={cn(
+        'flex items-center justify-between px-[18px] py-[13px] border-b',
+        dark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+      )}>
+        <div className={cn(
+          'flex items-center gap-2 font-head text-[13px] font-semibold',
+          dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+        )}>
           <div className="w-[8px] h-[8px] rounded-full bg-[#1A56DB]" />
           Transcription
         </div>
         <button
           onClick={handleCopy}
-          className="flex items-center gap-[6px] px-[12px] py-[5px] rounded-[8px] border border-[#E2E8F0] bg-white text-[#4A5568] text-[12.5px] font-medium hover:border-[#1A56DB] hover:text-[#1A56DB] transition-all duration-[180ms]"
+          className={cn(
+            'flex items-center gap-[6px] px-[12px] py-[5px] rounded-[8px] border',
+            'text-[12.5px] font-medium hover:border-[#1A56DB] hover:text-[#1A56DB] transition-all duration-[180ms]',
+            dark
+              ? 'bg-[#1E293B] border-[#334155] text-[#94A3B8]'
+              : 'bg-white border-[#E2E8F0] text-[#4A5568]'
+          )}
         >
           {copied ? <Check size={12} /> : <Copy size={12} />}
           {copied ? 'Copied' : 'Copy'}
@@ -92,11 +119,16 @@ export default function TranscriptionCard({ compact: _compact = false }: Transcr
           {renderTranscription()}
         </div>
 
-        {/* Only shown when showConfidence preference is on */}
         {preferences.showConfidence && (
-          <div className="flex items-center gap-3 mt-4 pt-4 border-t border-[#E2E8F0]">
+          <div className={cn(
+            'flex items-center gap-3 mt-4 pt-4 border-t',
+            dark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+          )}>
             <span className="text-[11.5px] text-[#94A3B8] flex-shrink-0">AI Confidence</span>
-            <div className="flex-1 h-[5px] bg-[#E2E8F0] rounded-full overflow-hidden">
+            <div className={cn(
+              'flex-1 h-[5px] rounded-full overflow-hidden',
+              dark ? 'bg-[#334155]' : 'bg-[#E2E8F0]'
+            )}>
               <div
                 className="h-full rounded-full bg-gradient-to-r from-[#0BA871] to-[#38BDF8]"
                 style={{ width: `${confidence}%` }}

@@ -1,5 +1,6 @@
 import { useAppStore } from '../../../store/appStore'
 import { FileText, Activity, Clock } from 'lucide-react'
+import { cn } from '../../../lib/utils'
 
 function toConfidencePercent(score: number): number {
   const base = score <= 1 ? score * 100 : score
@@ -8,7 +9,8 @@ function toConfidencePercent(score: number): number {
 }
 
 export default function StatsBar() {
-  const { history } = useAppStore()
+  const { history, preferences } = useAppStore()
+  const dark = preferences.darkMode
 
   const avgConfidence = history.length > 0
     ? Math.round(
@@ -24,7 +26,7 @@ export default function StatsBar() {
       value: history.length.toString(),
       label: 'Total Transcriptions',
       delta: history.length > 0 ? `${history.length} session${history.length !== 1 ? 's' : ''} total` : 'No sessions yet',
-      iconBg: 'bg-[#EBF3FF]',
+      iconBg:    dark ? 'bg-[#1E3A5F]' : 'bg-[#EBF3FF]',
       iconColor: 'text-[#1A56DB]',
     },
     {
@@ -32,7 +34,7 @@ export default function StatsBar() {
       value: history.length > 0 ? `${avgConfidence}%` : '—',
       label: 'Avg. Confidence',
       delta: history.length > 0 ? 'Across all sessions' : 'No data yet',
-      iconBg: 'bg-[#E6F7F2]',
+      iconBg:    dark ? 'bg-[#0D3327]' : 'bg-[#E6F7F2]',
       iconColor: 'text-[#0BA871]',
     },
     {
@@ -40,7 +42,7 @@ export default function StatsBar() {
       value: timeSaved > 0 ? `${timeSaved} min` : '—',
       label: 'Time Saved',
       delta: 'Est. 5 min per session',
-      iconBg: 'bg-[#F3F0FF]',
+      iconBg:    dark ? 'bg-[#2D1B69]' : 'bg-[#F3F0FF]',
       iconColor: 'text-[#7C3AED]',
     },
   ]
@@ -50,16 +52,28 @@ export default function StatsBar() {
       {stats.map((stat) => (
         <div
           key={stat.label}
-          className="bg-white border border-[#E2E8F0] rounded-[14px] p-5 flex items-start gap-4 hover:shadow-lg transition-shadow duration-[180ms]"
+          className={cn(
+            'border rounded-[14px] p-5 flex items-start gap-4',
+            'hover:shadow-lg transition-shadow duration-[180ms]',
+            dark
+              ? 'bg-[#1E293B] border-[#334155]'
+              : 'bg-white border-[#E2E8F0]'
+          )}
         >
-          <div className={`w-[42px] h-[42px] rounded-[10px] flex items-center justify-center flex-shrink-0 ${stat.iconBg} ${stat.iconColor}`}>
+          <div className={cn(
+            'w-[42px] h-[42px] rounded-[10px] flex items-center justify-center flex-shrink-0',
+            stat.iconBg, stat.iconColor
+          )}>
             {stat.icon}
           </div>
           <div>
-            <div className="font-head text-[24px] font-bold text-[#0D1B2A] leading-none mb-1">
+            <div className={cn(
+              'font-head text-[24px] font-bold leading-none mb-1',
+              dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+            )}>
               {stat.value}
             </div>
-            <div className="text-[12.5px] text-[#4A5568] font-medium">
+            <div className="text-[12.5px] text-[#94A3B8] font-medium">
               {stat.label}
             </div>
             <div className="text-[11px] text-[#0BA871] font-semibold mt-1">
