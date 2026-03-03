@@ -1,105 +1,144 @@
 # MediScribe AI
 
-A medical transcription system that converts doctor-patient conversations into structured clinical documentation using local AI models. This project demonstrates production-level ML engineering with a focus on healthcare applications.
+A full-stack clinical documentation system that converts doctor–patient audio conversations into structured SOAP notes using speech recognition, biomedical NLP, and LLM-generated clinical prose.
 
 [![Status](https://img.shields.io/badge/Status-Active%20Development-success)](https://github.com/insiyaarsi/mediscribe-ai)
-[![Week](https://img.shields.io/badge/Week-6%20Complete-blue)](https://github.com/insiyaarsi/mediscribe-ai)
+[![Stack](https://img.shields.io/badge/Stack-React%20%7C%20FastAPI%20%7C%20Groq-blue)](https://github.com/insiyaarsi/mediscribe-ai)
 [![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+
+---
 
 ## Overview
 
-MediScribe AI processes medical audio recordings through a complete pipeline: speech-to-text transcription, medical entity extraction, content validation, and SOAP note generation. The system runs entirely locally using Whisper for transcription and scispacy for medical NLP, eliminating API costs and latency.
+MediScribe AI takes a recorded clinical encounter and produces a documentation-grade SOAP note in under 10 seconds. The pipeline runs speech-to-text transcription locally via Whisper, extracts medical entities using a biomedical NLP model trained on clinical corpora, validates that the content is genuinely medical before committing to further processing, and then generates clinical prose via the Groq API with a rule-based fallback to guarantee output even when the API is unavailable.
 
-**Current Status:** Week 6 complete - Frontend interface with content validation
+The frontend is a production-quality React application with full dark mode, session history, user preferences, and inline SOAP note editing.
+
+---
+
+## Pipeline
+
+```
+Audio Upload
+    │
+    ▼
+Whisper (local) ── Speech-to-text transcription
+    │
+    ▼
+Content Validator ── Dual-criteria medical gate (density + markers)
+    │                Rejects non-medical audio before NLP runs
+    │
+    ▼
+scispaCy en_ner_bc5cdr_md ── Biomedical NER (CHEMICAL / DISEASE labels)
+    │                         Trained on BC5CDR clinical corpus
+    │
+    ▼
+Entity Categoriser ── Maps to SYMPTOM / MEDICATION / CONDITION /
+    │                  PROCEDURE / TEST using 700+ term dictionary
+    │
+    ▼
+Groq llama-3.3-70b-versatile ── SOAP note generation (clinical prose)
+    │   └── Rule-based fallback if API unavailable
+    │
+    ▼
+React Frontend ── Entity chips, editable SOAP sections, history, export
+```
+
+---
 
 ## Key Features
 
-**Core Processing**
-- Speech-to-text transcription using OpenAI's Whisper model (local deployment)
-- Medical entity extraction with scispacy's biomedical model
-- Intelligent compound term merging (e.g., "shortness of breath", "congestive heart failure")
-- Classification into 8 medical categories using 700+ term dictionary
-- Automated SOAP note generation from extracted entities
+**Processing**
+- Local Whisper transcription — no external speech API, no per-minute cost
+- `en_ner_bc5cdr_md` biomedical NER — trained on clinical literature, not general web text
+- Content validation gate — prevents SOAP generation from non-medical recordings
+- Groq-powered SOAP generation — documentation-grade clinical prose with OPQRST structure, normalised medication names, and standard-of-care additions
+- Rule-based fallback — pipeline always produces a valid SOAP dict even if Groq is unreachable
 
-**Content Validation**
-- Medical content detection to prevent false documentation
-- Dual validation criteria: 10% medical term density + 2 clinical markers
-- Weighted confidence scoring system
-- Clear user feedback for rejected content
+**Frontend**
+- Colour-coded entity chips by category (symptoms, medications, conditions, procedures, tests)
+- Editable SOAP note sections — clinician can amend before downloading
+- Full dark mode across all pages and components
+- Session history with per-entry confidence scores, entity counts, and SOAP export
+- User preferences (auto-scroll, compact view, confidence display, auto-copy)
+- Audio preview player before transcription
 
-**User Interface**
-- React-based frontend with real-time processing
-- Color-coded entity visualization by category
-- Downloadable SOAP notes with timestamps
-- Responsive design with Tailwind CSS
+---
 
-## Performance Metrics
+## Architecture Decisions
 
-Based on testing across 5 medical scenarios (226 total entities):
+### Why `en_ner_bc5cdr_md` over `en_core_sci_sm`
 
-- Validation accuracy: 100% (5/5 medical scenarios passed, 1/1 non-medical rejected)
-- Entity categorization rate: 70%
-- Compound term merging accuracy: 100% (zero false positives)
-- Average processing time: 5-10 seconds per audio file
-- Medical term density range: 33-47% across valid scenarios
+`en_core_sci_sm` is a general biomedical model trained on PubMed abstracts. `en_ner_bc5cdr_md` is trained specifically on the BC5CDR corpus — a dataset of annotated clinical case reports — and returns two high-precision labels: `CHEMICAL` (mapped to medications) and `DISEASE` (mapped to conditions and symptoms). For a clinical transcription use case, precision on drug and disease names matters more than broad entity coverage, which made `en_ner_bc5cdr_md` the better fit despite its narrower label set.
 
-See [test results documentation](docs/test_results.md) for detailed analysis.
+### Why Groq over OpenAI for SOAP generation
 
-## Technical Architecture
+The SOAP generator originally used a rule-based template system that produced structured dicts rather than clinical prose. Replacing it with an LLM was necessary to generate the kind of fluent, documentation-grade notes a clinician would actually review. Groq's free tier provides `llama-3.3-70b-versatile` with sufficient context length and low enough latency for a synchronous pipeline. The OpenAI API would introduce per-token cost at scale; Groq eliminates that for a portfolio project while still producing comparable output quality for clinical prose tasks.
 
-**Backend Stack**
-- FastAPI (Python) - REST API server
-- Whisper base model - Speech recognition (140MB, runs on CPU)
-- scispacy v0.6.2 with en_core_sci_sm - Biomedical NLP
-- Custom medical dictionaries - 700+ terms across 8 categories
+### Why a rule-based fallback exists
 
-**Frontend Stack**
-- React 18 with TypeScript
-- Vite for development and building
-- Tailwind CSS for styling
-- Lucide React for icons
+LLM API calls can fail — rate limits, network timeouts, invalid keys on first run. A SOAP generator that raises an exception breaks the entire pipeline for the clinician. The fallback produces a valid SOAP dict from the already-extracted entities so the frontend always receives something useful, and the `source` field in the response tells the frontend which path was taken.
 
-**Processing Pipeline**
-```
-Audio Upload → Whisper Transcription → Content Validation → 
-Entity Extraction (scispacy) → Dictionary-based Categorization → 
-SOAP Note Generation → React UI Display
-```
+### Why the content validator uses AND logic
 
-## Installation
+The validator requires both a minimum medical term density (10%) and a minimum number of clinical context markers (2). Using OR would let dense-but-generic text (e.g. a sports injury article) pass on density alone, or let sparse clinical text with one marker pass on context alone. The AND requirement means both signals must fire — this produced zero false positives and zero false negatives across all test scenarios.
+
+---
+
+## Tech Stack
+
+**Backend**
+| Component | Technology |
+|---|---|
+| API server | FastAPI (Python) |
+| Speech recognition | OpenAI Whisper `base` model — local CPU inference |
+| Biomedical NER | scispaCy 0.6.2 + `en_ner_bc5cdr_md` |
+| SOAP generation | Groq API — `llama-3.3-70b-versatile` |
+| Validation | Custom rule-based validator with 700+ term dictionary |
+
+**Frontend**
+| Component | Technology |
+|---|---|
+| Framework | React 18 + TypeScript |
+| Build tool | Vite |
+| Styling | Tailwind CSS |
+| State management | Zustand with `persist` middleware |
+| Icons | Lucide React |
+| Notifications | Sonner |
+
+---
+
+## Local Setup
 
 ### Prerequisites
-- Python 3.12 or higher
-- Node.js 18 or higher
-- Git
+- Python 3.12+
+- Node.js 18+
+- A [Groq API key](https://console.groq.com) (free tier is sufficient)
 
-### Backend Setup
-
-Clone the repository and install Python dependencies:
+### Backend
 
 ```bash
 git clone https://github.com/insiyaarsi/mediscribe-ai.git
 cd mediscribe-ai/backend
 pip install -r requirements.txt
+python -m spacy download en_ner_bc5cdr_md
 ```
 
-Download the required ML models:
+Create a `.env` file in `backend/`:
 
-```bash
-python -m spacy download en_core_sci_sm
+```
+GROQ_API_KEY=your_key_here
 ```
 
-Start the backend server:
+Start the server:
 
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8000` with documentation at `http://localhost:8000/docs`
+API available at `http://localhost:8000` — interactive docs at `http://localhost:8000/docs`
 
-### Frontend Setup
-
-Install Node dependencies and start the development server:
+### Frontend
 
 ```bash
 cd ../frontend
@@ -107,171 +146,136 @@ npm install
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:5173`
+Frontend available at `http://localhost:5173`
 
-## Usage
+---
 
-The system accepts audio files in MP3, WAV, M4A, WebM, OGG, or FLAC format. Upload a medical audio recording through the web interface to:
+## API Reference
 
-1. Transcribe the audio using Whisper
-2. Validate that the content is medical (automatic rejection of non-medical audio)
-3. Extract and categorize medical entities
-4. Generate a structured SOAP note
-5. Download the results as a text file
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/transcribe` | Upload audio file — returns transcription, entities, and SOAP note |
 
-Non-medical content will be rejected with a validation warning, showing the transcription but skipping entity extraction and SOAP generation.
+### `/api/transcribe` response shape
+
+```json
+{
+  "success": true,
+  "transcription": "Patient is a 45-year-old male presenting with...",
+  "validation": {
+    "is_valid": true,
+    "confidence_score": 0.87,
+    "details": { "medical_term_density": 0.34, "clinical_markers_found": 6 }
+  },
+  "entities": {
+    "total": 12,
+    "all_entities": [
+      { "text": "chest pain", "label": "DISEASE", "confidence": 0.95 }
+    ]
+  },
+  "soap_note": {
+    "subjective": "...",
+    "objective": "...",
+    "assessment": "...",
+    "plan": "..."
+  }
+}
+```
+
+If validation fails, `success` is `false` and `entities` / `soap_note` are omitted.
+
+---
 
 ## Project Structure
 
 ```
 mediscribe-ai/
 ├── backend/
-│   ├── main.py                    # FastAPI server and endpoints
-│   ├── transcription.py           # Whisper integration
-│   ├── entity_extraction.py       # scispacy NLP pipeline
-│   ├── medical_categories.py      # Medical term dictionaries
-│   ├── content_validator.py       # Validation system
-│   ├── soap_generator.py          # SOAP note generation
+│   ├── main.py                  # FastAPI app, CORS, endpoint routing
+│   ├── transcription.py         # Whisper integration
+│   ├── entity_extraction.py     # scispaCy NER pipeline
+│   ├── medical_categories.py    # 700+ term dictionary across 7 categories
+│   ├── content_validator.py     # Dual-criteria medical content gate
+│   ├── soap_generator.py        # Groq primary path + rule-based fallback
 │   └── requirements.txt
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx               # Main application component
-│   │   └── components/           # Reusable UI components
-│   ├── package.json
-│   └── vite.config.ts
-└── docs/
-    ├── screenshots/              # Portfolio screenshots
-    └── test_results.md          # Detailed testing analysis
+└── frontend/
+    └── src/
+        ├── App.tsx              # Layout, routing, dark mode class
+        ├── pages/
+        │   ├── LoginPage.tsx
+        │   ├── DashboardPage.tsx
+        │   ├── HistoryPage.tsx
+        │   └── SettingsPage.tsx
+        ├── components/
+        │   ├── layout/          # Sidebar, TopBar
+        │   ├── features/
+        │   │   ├── upload/      # UploadCard, UploadZone, TranscribeButton, StatsBar
+        │   │   └── results/     # TranscriptionCard, EntitiesCard, SOAPNoteCard, EntityChip
+        ├── store/
+        │   └── appStore.ts      # Zustand store with persistence
+        ├── services/
+        │   └── api.ts           # Axios client, response normalisation
+        ├── lib/
+        │   └── utils.ts         # Entity categorisation, style maps, formatters
+        └── types/
+            └── index.ts         # Shared TypeScript interfaces
 ```
+
+---
 
 ## Testing
 
-The system has been tested across 5 medical specialties:
+The pipeline has been validated across five clinical scenarios:
 
-- Cardiology (chest pain presentation) - 35 entities
-- Respiratory (COPD exacerbation) - 47 entities
-- Endocrinology (diabetes follow-up) - 33 entities
-- Mental health (depression/anxiety) - 46 entities
-- Multi-system (geriatric patient) - 67 entities
+| Scenario | Entities Extracted | Validation |
+|---|---|---|
+| Cardiology — chest pain presentation | 35 | Passed |
+| Respiratory — COPD exacerbation | 47 | Passed |
+| Endocrinology — diabetes follow-up | 33 | Passed |
+| Mental health — depression/anxiety | 46 | Passed |
+| Multi-system — geriatric patient | 67 | Passed |
+| Non-medical control — TV show review | — | Correctly rejected |
 
-Additionally, a non-medical control test (TV show review) was correctly rejected by the validation system.
-
-To run validation tests independently:
+To run the content validator in isolation:
 
 ```bash
 cd backend
 python content_validator.py
 ```
 
-## Technical Details
-
-### Medical Entity Extraction
-
-The system uses scispacy to identify medical entities, then categorizes them using custom dictionaries:
-
-- Symptoms (180+ terms)
-- Medications (124+ terms)
-- Conditions (170+ terms)
-- Procedures (115+ terms)
-- Anatomical terms (85+ terms)
-- Clinical modifiers (60+ terms)
-- Clinical terms (30+ terms)
-
-Compound terms are dynamically merged when consecutive entities match multi-word dictionary entries, avoiding the need for hardcoded patterns.
-
-### Content Validation
-
-Validation uses two criteria, both of which must be met:
-
-- Medical term density: At least 10% of words must be medical terms
-- Clinical markers: At least 2 clinical context phrases must be present
-
-Clinical markers include terms like "patient", "vital signs", "year old", "diagnosis", and medical abbreviations like "mg", "bpm", "mmhg".
-
-The confidence score is calculated as a weighted average (70% density, 30% markers).
-
-### SOAP Note Generation
-
-SOAP notes are generated using a template-based system that maps extracted entities to appropriate sections:
-
-- **Subjective**: Chief complaint, symptoms, patient narrative
-- **Objective**: Findings, procedures, vital signs
-- **Assessment**: Primary diagnosis, all conditions
-- **Plan**: Treatment plan, medications, follow-up
-
-## Development Timeline
-
-This is a 20-week portfolio project for university applications:
-
-- Weeks 1-2: Backend foundation (FastAPI, Whisper, scispacy)
-- Weeks 3-5: Entity extraction, categorization, SOAP generation
-- Week 6: Frontend development and content validation (current)
-- Week 7: UI polish and enhancements
-- Weeks 8-10: Database integration (PostgreSQL)
-- Week 11: User authentication (JWT)
-- Week 12: Docker containerization
-- Weeks 13-14: Testing and QA
-- Weeks 15-16: Production deployment
-- Weeks 17-20: User testing, documentation, launch
-
-Target completion: May 2026
-
-## Future Enhancements
-
-Planned features for upcoming weeks:
-
-- PostgreSQL database for persistence
-- User authentication with JWT
-- Real-time WebSocket streaming for live transcription
-- ICD-10 code mapping for diagnoses
-- Medication dosage and frequency extraction
-- Drug interaction warnings
-- Temporal information extraction (symptom onset, duration)
-- FHIR-compliant output format
-- Docker deployment
-- Production hosting on Railway and Vercel
-
-## Design Decisions
-
-### Why Local Models?
-
-After initial attempts with OpenAI and Hugging Face APIs resulted in rate limiting and reliability issues, I switched to local model deployment. This provides:
-
-- Zero API costs
-- Consistent performance without rate limits
-- No external dependencies or downtime
-- Better privacy for medical data
-
-### Why Template-based SOAP Notes?
-
-While AI-generated prose (e.g., using GPT) would produce more natural-sounding notes, template-based generation:
-
-- Provides deterministic, reproducible output
-- Maintains clinical accuracy without hallucination risk
-- Keeps the entire system free and local
-- Is sufficient for a portfolio demonstration
-
-The trade-off is acceptable for an educational project.
+---
 
 ## Known Limitations
 
-- 30% of entities are marked "unknown" (primarily numbers, dosages, and temporal phrases)
-- Objective section uses placeholder text when vitals aren't mentioned
-- No negation detection ("no chest pain" vs "chest pain" both extract as symptoms)
-- SOAP notes are template-based rather than naturally generated prose
-- Single-user system (multi-user support planned for Week 11)
-- No persistence (database integration planned for Weeks 9-10)
-
-## License
-
-MIT License - See LICENSE file for details.
-
-## Author
-
-Built by insiyaarsi as a portfolio project.
-
-Repository: https://github.com/insiyaarsi/mediscribe-ai
+- `en_ner_bc5cdr_md` returns only `CHEMICAL` and `DISEASE` labels — procedural and anatomical entities are captured via the dictionary layer rather than the NER model
+- Negation detection is not implemented — "denies chest pain" and "chest pain" both extract the entity
+- No user authentication — the login screen simulates auth for portfolio demonstration purposes; real JWT auth is a planned future addition
+- Single-user session model — history is stored in browser localStorage via Zustand persist
 
 ---
 
-Last updated: January 2026
+## Development Timeline
+
+20-week portfolio project for university applications.
+
+| Weeks | Milestone | Status |
+|---|---|---|
+| 1–2 | Backend foundation — FastAPI, Whisper, scispaCy | Complete |
+| 3–5 | Entity extraction, categorisation, SOAP generation | Complete |
+| 6–7 | Content validation, initial frontend | Complete |
+| 8–9 | React frontend rebuild — full component architecture | Complete |
+| 9.5 | Groq SOAP generation, backend improvements | Complete |
+| 10 | Frontend testing and bug fixes | Complete |
+| 11 | Dark mode, HistoryPage, SettingsPage | Complete |
+| 12–14 | Docker containerisation, PostgreSQL, JWT auth | Planned |
+| 15–16 | Production deployment — Railway + Vercel | Planned |
+| 17–20 | User testing, documentation, launch | Planned |
+
+---
+
+## Author
+
+Built by Insiya Arsi as a portfolio project for Canadian university applications.
+
+GitHub: [insiyaarsi/mediscribe-ai](https://github.com/insiyaarsi/mediscribe-ai)
