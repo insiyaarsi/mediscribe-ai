@@ -8,7 +8,7 @@ const ACCEPTED_EXTENSIONS = ['.mp3', '.wav', '.m4a', '.webm', '.ogg', '.flac']
 const MAX_SIZE_MB = 100
 
 export default function UploadZone() {
-  const { uploadState, selectedFile, setFile, setError } = useAppStore()
+  const { uploadState, selectedFile, preferences, setFile, setError } = useAppStore()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const audioRef = useRef<HTMLAudioElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
@@ -17,6 +17,7 @@ export default function UploadZone() {
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
 
+  const dark         = preferences.darkMode
   const isSelected   = uploadState === 'selected'
   const isProcessing = uploadState === 'processing'
   const isDone       = uploadState === 'done'
@@ -67,22 +68,17 @@ export default function UploadZone() {
       setDuration(0)
       return
     }
-
     const url = URL.createObjectURL(selectedFile)
     setAudioUrl(url)
     setIsPlaying(false)
     setCurrentTime(0)
     setDuration(0)
-
-    return () => {
-      URL.revokeObjectURL(url)
-    }
+    return () => { URL.revokeObjectURL(url) }
   }, [selectedFile])
 
   useEffect(() => {
     const audio = audioRef.current
     if (!audio) return
-
     const onLoadedMetadata = () => setDuration(Number.isFinite(audio.duration) ? audio.duration : 0)
     const onTimeUpdate = () => setCurrentTime(audio.currentTime)
     const onEnded = () => {
@@ -90,11 +86,9 @@ export default function UploadZone() {
       setCurrentTime(0)
       audio.currentTime = 0
     }
-
     audio.addEventListener('loadedmetadata', onLoadedMetadata)
     audio.addEventListener('timeupdate', onTimeUpdate)
     audio.addEventListener('ended', onEnded)
-
     return () => {
       audio.removeEventListener('loadedmetadata', onLoadedMetadata)
       audio.removeEventListener('timeupdate', onTimeUpdate)
@@ -105,17 +99,10 @@ export default function UploadZone() {
   const handlePlayPause = async () => {
     const audio = audioRef.current
     if (!audio || !audioUrl) return
-
     if (audio.paused) {
-      try {
-        await audio.play()
-        setIsPlaying(true)
-      } catch {
-        setIsPlaying(false)
-      }
+      try { await audio.play(); setIsPlaying(true) } catch { setIsPlaying(false) }
       return
     }
-
     audio.pause()
     setIsPlaying(false)
   }
@@ -132,8 +119,12 @@ export default function UploadZone() {
           'border-2 border-dashed rounded-[14px] p-12 text-center cursor-pointer',
           'transition-all duration-[220ms]',
           isDragOver
-            ? 'border-[#1A56DB] bg-[#EBF3FF]'
-            : 'border-[#CBD5E0] bg-[#F7FAFC] hover:border-[#1A56DB] hover:bg-[#EBF3FF]'
+            ? dark
+              ? 'border-[#1A56DB] bg-[#1E3A5F]'
+              : 'border-[#1A56DB] bg-[#EBF3FF]'
+            : dark
+              ? 'border-[#334155] bg-[#0F172A] hover:border-[#1A56DB] hover:bg-[#1E3A5F]'
+              : 'border-[#CBD5E0] bg-[#F7FAFC] hover:border-[#1A56DB] hover:bg-[#EBF3FF]'
         )}
       >
         <input
@@ -143,18 +134,30 @@ export default function UploadZone() {
           onChange={handleFileInput}
           className="hidden"
         />
-        <div className="w-[52px] h-[52px] rounded-full bg-[#EBF3FF] flex items-center justify-center mx-auto mb-4 text-[#1A56DB]">
+        <div className={cn(
+          'w-[52px] h-[52px] rounded-full flex items-center justify-center mx-auto mb-4 text-[#1A56DB]',
+          dark ? 'bg-[#1E3A5F]' : 'bg-[#EBF3FF]'
+        )}>
           <Upload size={24} />
         </div>
-        <div className="font-head text-[15px] font-semibold text-[#0D1B2A] mb-2">
+        <div className={cn(
+          'font-head text-[15px] font-semibold mb-2',
+          dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+        )}>
           Drop your audio file here
         </div>
-        <div className="text-[13px] text-[#4A5568] mb-4">
+        <div className="text-[13px] text-[#94A3B8] mb-4">
           or click to browse from your computer
         </div>
         <div className="flex gap-2 justify-center flex-wrap">
           {ACCEPTED_EXTENSIONS.map(ext => (
-            <span key={ext} className="font-mono text-[10px] px-2 py-1 rounded-[4px] bg-white border border-[#E2E8F0] text-[#94A3B8]">
+            <span
+              key={ext}
+              className={cn(
+                'font-mono text-[10px] px-2 py-1 rounded-[4px] border text-[#94A3B8]',
+                dark ? 'bg-[#1E293B] border-[#334155]' : 'bg-white border-[#E2E8F0]'
+              )}
+            >
               {ext.replace('.', '').toUpperCase()}
             </span>
           ))}
@@ -163,9 +166,12 @@ export default function UploadZone() {
     )
   }
 
-  // File selected state
+  // File selected / processing / done state
   return (
-    <div className="border-2 border-solid border-[#0BA871] rounded-[14px] p-6 bg-[#E6F7F2]">
+    <div className={cn(
+      'border-2 border-solid rounded-[14px] p-6',
+      dark ? 'border-[#0BA871] bg-[#0D3327]' : 'border-[#0BA871] bg-[#E6F7F2]'
+    )}>
       <input
         ref={fileInputRef}
         type="file"
@@ -174,17 +180,23 @@ export default function UploadZone() {
         className="hidden"
       />
       <div className="flex items-center gap-4">
-        <div className="w-[48px] h-[48px] rounded-[10px] bg-[#E6F7F2] border border-[#0BA871]/30 flex items-center justify-center flex-shrink-0 text-[#0BA871]">
+        <div className={cn(
+          'w-[48px] h-[48px] rounded-[10px] border flex items-center justify-center flex-shrink-0 text-[#0BA871]',
+          dark ? 'bg-[#0D3327] border-[#0BA871]/30' : 'bg-[#E6F7F2] border-[#0BA871]/30'
+        )}>
           <Music size={22} />
         </div>
         <div className="flex-1 min-w-0">
-          <div  style={{color: '#000000'}} className="font-semibold text-[14px] truncate">
+          <div className={cn(
+            'font-semibold text-[14px] truncate',
+            dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+          )}>
             {selectedFile?.name}
           </div>
           <div className="font-mono text-[12px] text-[#94A3B8] mt-1">
             {selectedFile ? formatFileSize(selectedFile.size) : ''} · Audio ready
           </div>
-          {/* Fake audio player bar */}
+          {/* Audio player bar */}
           <div className="flex items-center gap-3 mt-2">
             <button
               onClick={handlePlayPause}
@@ -192,7 +204,10 @@ export default function UploadZone() {
             >
               {isPlaying ? <Pause size={10} fill="white" /> : <Play size={10} fill="white" />}
             </button>
-            <div className="flex-1 h-[4px] bg-[#CBD5E0] rounded-full overflow-hidden">
+            <div className={cn(
+              'flex-1 h-[4px] rounded-full overflow-hidden',
+              dark ? 'bg-[#1E293B]' : 'bg-[#CBD5E0]'
+            )}>
               <div
                 className="h-full bg-[#0BA871] rounded-full transition-[width] duration-150"
                 style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }}
@@ -207,14 +222,18 @@ export default function UploadZone() {
           <button
             onClick={() => {
               const audio = audioRef.current
-              if (audio) {
-                audio.pause()
-                audio.currentTime = 0
-              }
+              if (audio) { audio.pause(); audio.currentTime = 0 }
               setFile(null)
               setIsPlaying(false)
             }}
-            className="flex items-center gap-[6px] px-[13px] py-[6px] rounded-[10px] border border-[#E2E8F0] bg-white text-[#4A5568] text-[13px] font-medium hover:border-red-300 hover:text-red-500 transition-all duration-[180ms] flex-shrink-0"
+            className={cn(
+              'flex items-center gap-[6px] px-[13px] py-[6px] rounded-[10px] border',
+              'text-[13px] font-medium flex-shrink-0',
+              'hover:border-red-300 hover:text-red-500 transition-all duration-[180ms]',
+              dark
+                ? 'bg-[#1E293B] border-[#334155] text-[#94A3B8]'
+                : 'bg-white border-[#E2E8F0] text-[#4A5568]'
+            )}
           >
             <X size={13} />
             Remove

@@ -1,6 +1,7 @@
 import { useAppStore } from '../../../store/appStore'
 import { groupEntities, getEntityStyles } from '../../../lib/utils'
 import EntityChip from './EntityChip'
+import { cn } from '../../../lib/utils'
 import type { EntityCategory } from '../../../types'
 
 const CATEGORY_LABELS: Record<EntityCategory, string> = {
@@ -21,12 +22,19 @@ interface EntitiesCardProps {
 }
 
 export default function EntitiesCard({ compact: _compact = false }: EntitiesCardProps) {
-  const { transcriptionResult } = useAppStore()
+  const { transcriptionResult, preferences } = useAppStore()
+  const dark = preferences.darkMode
 
   if (!transcriptionResult) return null
 
   const grouped = groupEntities(transcriptionResult.entities)
-  const totalCount = transcriptionResult.entities.length
+  const totalCount =
+    grouped.symptoms.length +
+    grouped.medications.length +
+    grouped.conditions.length +
+    grouped.procedures.length +
+    grouped.tests.length +
+    grouped.other.length
 
   const groupMap: Record<EntityCategory, typeof grouped.symptoms> = {
     SYMPTOM:    grouped.symptoms,
@@ -37,17 +45,28 @@ export default function EntitiesCard({ compact: _compact = false }: EntitiesCard
     OTHER:      grouped.other,
   }
 
-  // Only render categories that have at least one entity
   const activeCategories = CATEGORY_ORDER.filter(cat => groupMap[cat].length > 0)
 
   return (
-    <div className="bg-white border border-[#E2E8F0] rounded-[14px] overflow-hidden">
+    <div className={cn(
+      'border rounded-[14px] overflow-hidden',
+      dark ? 'bg-[#1E293B] border-[#334155]' : 'bg-white border-[#E2E8F0]'
+    )}>
       {/* Header */}
-      <div className="flex items-center justify-between px-[18px] py-[13px] border-b border-[#E2E8F0]">
-        <div className="flex items-center gap-2 font-head text-[13px] font-semibold text-[#0D1B2A]">
+      <div className={cn(
+        'flex items-center justify-between px-[18px] py-[13px] border-b',
+        dark ? 'border-[#334155]' : 'border-[#E2E8F0]'
+      )}>
+        <div className={cn(
+          'flex items-center gap-2 font-head text-[13px] font-semibold',
+          dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+        )}>
           <div className="w-[8px] h-[8px] rounded-full bg-[#0BA871]" />
           Medical Entities
-          <span className="text-[11px] bg-[#F7FAFC] border border-[#E2E8F0] px-[7px] py-[2px] rounded-[10px] text-[#94A3B8] font-mono ml-1">
+          <span className={cn(
+            'text-[11px] border px-[7px] py-[2px] rounded-[10px] text-[#94A3B8] font-mono ml-1',
+            dark ? 'bg-[#0F172A] border-[#334155]' : 'bg-[#F7FAFC] border-[#E2E8F0]'
+          )}>
             {totalCount}
           </span>
         </div>
@@ -62,12 +81,13 @@ export default function EntitiesCard({ compact: _compact = false }: EntitiesCard
         ) : (
           <div className="flex flex-wrap gap-x-8 gap-y-4">
             {activeCategories.map(cat => {
-              const styles = getEntityStyles(cat)
+              // Pass darkMode so category header dot colours switch correctly
+              const styles = getEntityStyles(cat, dark)
               return (
                 <div key={cat} className="min-w-[140px]">
                   {/* Category header */}
                   <div className="flex items-center gap-[6px] mb-2">
-                    <div className={`w-[7px] h-[7px] rounded-full flex-shrink-0 ${styles.dot}`} />
+                    <div className={cn('w-[7px] h-[7px] rounded-full flex-shrink-0', styles.dot)} />
                     <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#94A3B8]">
                       {CATEGORY_LABELS[cat]}
                     </span>

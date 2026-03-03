@@ -17,24 +17,24 @@ const TESTIMONIAL = {
 }
 
 export default function LoginPage() {
-  const { setPage } = useAppStore()
+  const { setPage, preferences } = useAppStore()
+  const dark = preferences.darkMode
 
-  const [email,       setEmail]       = useState('')
-  const [password,    setPassword]    = useState('')
-  const [remember,    setRemember]    = useState(false)
-  const [showPass,    setShowPass]    = useState(false)
-  const [isLoading,   setIsLoading]   = useState(false)
-  const [mode,        setMode]        = useState<'login' | 'register'>('login')
+  const [email,     setEmail]     = useState('')
+  const [password,  setPassword]  = useState('')
+  const [remember,  setRemember]  = useState(false)
+  const [showPass,  setShowPass]  = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [mode,      setMode]      = useState<'login' | 'register'>('login')
 
   // Register fields
-  const [firstName,   setFirstName]   = useState('')
-  const [lastName,    setLastName]    = useState('')
-  const [specialty,   setSpecialty]   = useState('')
+  const [firstName, setFirstName] = useState('')
+  const [lastName,  setLastName]  = useState('')
+  const [specialty, setSpecialty] = useState('')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Basic validation
     if (!email.trim()) {
       toast.error('Please enter your email address')
       return
@@ -49,25 +49,22 @@ export default function LoginPage() {
     }
 
     setIsLoading(true)
-
-    // Simulate auth delay — replace with real auth call in Week 11
     await new Promise(resolve => setTimeout(resolve, 1200))
-
     setIsLoading(false)
+
     toast.success(mode === 'login' ? 'Welcome back!' : 'Account created!', {
       description: mode === 'login'
         ? 'Redirecting to your dashboard...'
         : 'Your account is ready. Redirecting...',
     })
 
-    // Short pause so the toast is visible before navigation
     setTimeout(() => setPage('dashboard'), 600)
   }
 
   return (
     <div className="flex w-full min-h-screen">
 
-      {/* ── Left panel ───────────────────────────────────── */}
+      {/* ── Left panel — intentionally always dark ────────── */}
       <div
         className="hidden lg:flex flex-col justify-between w-[48%] min-h-screen p-[52px] relative overflow-hidden"
         style={{ background: 'linear-gradient(145deg, #0D1B2A 0%, #0F2D4A 50%, #0A1E32 100%)' }}
@@ -143,7 +140,10 @@ export default function LoginPage() {
       </div>
 
       {/* ── Right panel ──────────────────────────────────── */}
-      <div className="flex-1 flex items-center justify-center bg-[#F7FAFC] px-6 py-12">
+      <div className={cn(
+        'flex-1 flex items-center justify-center px-6 py-12',
+        dark ? 'bg-[#0F172A]' : 'bg-[#F7FAFC]'
+      )}>
         <div className="w-full max-w-[400px]">
 
           {/* Mobile logo */}
@@ -151,14 +151,16 @@ export default function LoginPage() {
             <div className="w-[36px] h-[36px] rounded-[8px] bg-gradient-to-br from-[#1A56DB] to-[#0BA871] flex items-center justify-center">
               <Zap size={18} className="text-white" fill="white" />
             </div>
-            <div className="font-head text-[16px] font-bold text-[#0D1B2A]">MediScribe AI</div>
+            <div className={cn('font-head text-[16px] font-bold', dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]')}>
+              MediScribe AI
+            </div>
           </div>
 
           {/* Heading */}
-          <h2 className="font-head text-[26px] font-bold text-[#0D1B2A] mb-1">
+          <h2 className={cn('font-head text-[26px] font-bold mb-1', dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]')}>
             {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h2>
-          <p className="text-[14px] text-[#4A5568] mb-7">
+          <p className={cn('text-[14px] mb-7', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
             {mode === 'login'
               ? 'Sign in to your MediScribe account'
               : 'Get started with MediScribe AI for free'
@@ -171,42 +173,19 @@ export default function LoginPage() {
             {/* Register-only fields */}
             {mode === 'register' && (
               <div className="grid grid-cols-2 gap-3">
-                <AuthField
-                  label="First Name"
-                  type="text"
-                  value={firstName}
-                  onChange={setFirstName}
-                  placeholder="First name"
-                />
-                <AuthField
-                  label="Last Name"
-                  type="text"
-                  value={lastName}
-                  onChange={setLastName}
-                  placeholder="Last name"
-                />
+                <AuthField dark={dark} label="First Name" type="text"  value={firstName} onChange={setFirstName} placeholder="First name" />
+                <AuthField dark={dark} label="Last Name"  type="text"  value={lastName}  onChange={setLastName}  placeholder="Last name" />
                 <div className="col-span-2">
-                  <AuthField
-                    label="Specialty"
-                    type="text"
-                    value={specialty}
-                    onChange={setSpecialty}
-                    placeholder="e.g. General Practice"
-                  />
+                  <AuthField dark={dark} label="Specialty" type="text" value={specialty} onChange={setSpecialty} placeholder="e.g. General Practice" />
                 </div>
               </div>
             )}
 
-            <AuthField
-              label="Email address"
-              type="email"
-              value={email}
-              onChange={setEmail}
-              placeholder="dr.smith@hospital.com"
-            />
+            <AuthField dark={dark} label="Email address" type="email" value={email} onChange={setEmail} placeholder="dr.smith@hospital.com" />
 
+            {/* Password — inline because of show/hide toggle */}
             <div>
-              <label className="block text-[13px] font-semibold text-[#0D1B2A] mb-[5px]">
+              <label className={cn('block text-[13px] font-semibold mb-[5px]', dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]')}>
                 Password
               </label>
               <div className="relative">
@@ -215,7 +194,13 @@ export default function LoginPage() {
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   placeholder={mode === 'register' ? 'Minimum 6 characters' : '••••••••'}
-                  className="w-full px-[13px] py-[10px] pr-[40px] border border-[#E2E8F0] rounded-[10px] text-[14px] font-sans bg-[#F7FAFC] text-[#0D1B2A] placeholder:text-[#94A3B8] outline-none focus:border-[#1A56DB] focus:bg-white transition-all duration-[180ms]"
+                  className={cn(
+                    'w-full px-[13px] py-[10px] pr-[40px] border rounded-[10px] text-[14px] font-sans',
+                    'placeholder:text-[#94A3B8] outline-none focus:border-[#1A56DB] transition-all duration-[180ms]',
+                    dark
+                      ? 'bg-[#0F172A] border-[#334155] text-[#E2E8F0]'
+                      : 'bg-[#F7FAFC] border-[#E2E8F0] text-[#0D1B2A] focus:bg-white'
+                  )}
                 />
                 <button
                   type="button"
@@ -237,12 +222,17 @@ export default function LoginPage() {
                     onChange={e => setRemember(e.target.checked)}
                     className="w-[14px] h-[14px] accent-[#1A56DB] cursor-pointer"
                   />
-                  <span className="text-[13px] text-[#4A5568]">Remember me</span>
+                  <span className={cn('text-[13px]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
+                    Remember me
+                  </span>
                 </label>
                 <button
                   type="button"
-                  onClick={() => toast.info('Password reset coming in Week 11 with full auth')}
-                  className="text-[13px] text-[#4A5568] font-medium underline hover:text-[#1A56DB] transition-colors"
+                  onClick={() => toast.info('Password reset coming in a future update')}
+                  className={cn(
+                    'text-[13px] font-medium underline transition-colors hover:text-[#1A56DB]',
+                    dark ? 'text-[#94A3B8]' : 'text-[#4A5568]'
+                  )}
                 >
                   Forgot password?
                 </button>
@@ -257,8 +247,7 @@ export default function LoginPage() {
                 'w-full flex items-center justify-center gap-2',
                 'py-[11px] rounded-[10px] font-semibold text-[14px] text-white',
                 'bg-[#1A56DB] hover:bg-[#1648C0]',
-                'hover:shadow-[0_4px_14px_rgba(26,86,219,0.4)]',
-                'hover:-translate-y-px',
+                'hover:shadow-[0_4px_14px_rgba(26,86,219,0.4)] hover:-translate-y-px',
                 'disabled:opacity-60 disabled:cursor-not-allowed disabled:translate-y-0',
                 'transition-all duration-[180ms]'
               )}
@@ -278,46 +267,44 @@ export default function LoginPage() {
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-[#E2E8F0]" />
+            <div className={cn('flex-1 h-px', dark ? 'bg-[#334155]' : 'bg-[#E2E8F0]')} />
             <span className="text-[12px] text-[#94A3B8]">or</span>
-            <div className="flex-1 h-px bg-[#E2E8F0]" />
+            <div className={cn('flex-1 h-px', dark ? 'bg-[#334155]' : 'bg-[#E2E8F0]')} />
           </div>
 
-          {/* Google SSO — placeholder for Week 11 */}
+          {/* Google SSO — placeholder */}
           <button
             type="button"
-            onClick={() => toast.info('Google SSO coming in Week 11 with full auth')}
-            className="w-full flex items-center justify-center gap-3 py-[10px] rounded-[10px] border border-[#E2E8F0] bg-white text-[#4A5568] text-[13.5px] font-medium hover:border-[#94A3B8] hover:bg-[#F7FAFC] transition-all duration-[180ms]"
+            onClick={() => toast.info('Google SSO coming in a future update')}
+            className={cn(
+              'w-full flex items-center justify-center gap-3 py-[10px] rounded-[10px] border',
+              'text-[13.5px] font-medium transition-all duration-[180ms]',
+              dark
+                ? 'bg-[#1E293B] border-[#334155] text-[#94A3B8] hover:border-[#4A5568] hover:bg-[#243150]'
+                : 'bg-white border-[#E2E8F0] text-[#4A5568] hover:border-[#94A3B8] hover:bg-[#F7FAFC]'
+            )}
           >
             <GoogleIcon />
             Continue with Google
           </button>
 
           {/* Mode switch */}
-          <p className="text-center text-[13.5px] text-[#4A5568] mt-5">
+          <p className={cn('text-center text-[13.5px] mt-5', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
             {mode === 'login'
               ? <>Don't have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => setMode('register')}
-                    className="text-[#1A56DB] font-semibold hover:underline"
-                  >
+                  <button type="button" onClick={() => setMode('register')} className="text-[#1A56DB] font-semibold hover:underline">
                     Sign up free
                   </button>
                 </>
               : <>Already have an account?{' '}
-                  <button
-                    type="button"
-                    onClick={() => setMode('login')}
-                    className="text-[#1A56DB] font-semibold hover:underline"
-                  >
+                  <button type="button" onClick={() => setMode('login')} className="text-[#1A56DB] font-semibold hover:underline">
                     Sign in
                   </button>
                 </>
             }
           </p>
 
-          <p className="text-center text-[11px] text-[#94A3B8] mt-4 leading-relaxed">
+          <p className={cn('text-center text-[11px] mt-4 leading-relaxed', dark ? 'text-[#4A6080]' : 'text-[#94A3B8]')}>
             By continuing you agree to our{' '}
             <span className="underline cursor-pointer hover:text-[#4A5568]">Terms of Service</span>
             {' '}and{' '}
@@ -330,19 +317,28 @@ export default function LoginPage() {
 }
 
 // ── Reusable auth field ───────────────────────────────────
-function AuthField({ label, type, value, onChange, placeholder }: {
+function AuthField({ label, type, value, onChange, placeholder, dark }: {
   label: string; type: string; value: string
-  onChange: (v: string) => void; placeholder?: string
+  onChange: (v: string) => void; placeholder?: string; dark: boolean
 }) {
   return (
     <div>
-      <label className="block text-[13px] font-semibold text-[#0D1B2A] mb-[5px]">
+      <label className={cn(
+        'block text-[13px] font-semibold mb-[5px]',
+        dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]'
+      )}>
         {label}
       </label>
       <input
         type={type} value={value} placeholder={placeholder}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-[13px] py-[10px] border border-[#E2E8F0] rounded-[10px] text-[14px] font-sans bg-[#F7FAFC] text-[#0D1B2A] placeholder:text-[#94A3B8] outline-none focus:border-[#1A56DB] focus:bg-white transition-all duration-[180ms]"
+        className={cn(
+          'w-full px-[13px] py-[10px] border rounded-[10px] text-[14px] font-sans',
+          'placeholder:text-[#94A3B8] outline-none focus:border-[#1A56DB] transition-all duration-[180ms]',
+          dark
+            ? 'bg-[#0F172A] border-[#334155] text-[#E2E8F0]'
+            : 'bg-[#F7FAFC] border-[#E2E8F0] text-[#0D1B2A] focus:bg-white'
+        )}
       />
     </div>
   )

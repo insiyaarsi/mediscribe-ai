@@ -4,6 +4,7 @@ import { Bell, Plus } from 'lucide-react'
 import type { AppPage } from '../../types'
 
 const PAGE_TITLES: Record<AppPage, string> = {
+  login:     'Login',
   dashboard: 'Dashboard',
   history:   'Transcription History',
   settings:  'Settings',
