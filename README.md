@@ -276,6 +276,6 @@ python content_validator.py
 
 ## Author
 
-Built by Insiya Arsi as a portfolio project for Canadian university applications.
+Built by Insiya Arsiwala as a portfolio project.
 
 GitHub: [insiyaarsi/mediscribe-ai](https://github.com/insiyaarsi/mediscribe-ai)
