@@ -1,5 +1,5 @@
 import { useAppStore } from '../../../store/appStore'
-import { groupEntities, getEntityStyles } from '../../../lib/utils'
+import { groupEntities, getEntityDotColor } from '../../../lib/utils'
 import EntityChip from './EntityChip'
 import { cn } from '../../../lib/utils'
 import type { EntityCategory } from '../../../types'
@@ -80,27 +80,26 @@ export default function EntitiesCard({ compact: _compact = false }: EntitiesCard
           </p>
         ) : (
           <div className="flex flex-wrap gap-x-8 gap-y-4">
-            {activeCategories.map(cat => {
-              // Pass darkMode so category header dot colours switch correctly
-              const styles = getEntityStyles(cat, dark)
-              return (
-                <div key={cat} className="min-w-[140px]">
-                  {/* Category header */}
-                  <div className="flex items-center gap-[6px] mb-2">
-                    <div className={cn('w-[7px] h-[7px] rounded-full flex-shrink-0', styles.dot)} />
-                    <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#94A3B8]">
-                      {CATEGORY_LABELS[cat]}
-                    </span>
-                  </div>
-                  {/* Chips */}
-                  <div className="flex flex-wrap gap-[5px]">
-                    {groupMap[cat].map((entity, i) => (
-                      <EntityChip key={`${entity.text}-${i}`} entity={entity} />
-                    ))}
-                  </div>
+            {activeCategories.map(cat => (
+              <div key={cat} className="min-w-[140px]">
+                {/* Category header dot uses inline style to bypass Tailwind scanner */}
+                <div className="flex items-center gap-[6px] mb-2">
+                  <div
+                    className="w-[7px] h-[7px] rounded-full flex-shrink-0"
+                    style={{ backgroundColor: getEntityDotColor(cat, dark) }}
+                  />
+                  <span className="text-[10.5px] font-bold uppercase tracking-[0.06em] text-[#94A3B8]">
+                    {CATEGORY_LABELS[cat]}
+                  </span>
                 </div>
-              )
-            })}
+                {/* Chips */}
+                <div className="flex flex-wrap gap-[5px]">
+                  {groupMap[cat].map((entity, i) => (
+                    <EntityChip key={`${entity.text}-${i}`} entity={entity} />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
