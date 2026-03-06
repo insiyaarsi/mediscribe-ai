@@ -12,21 +12,21 @@ interface TranscriptionCardProps {
 export default function TranscriptionCard({ compact: _compact = false }: TranscriptionCardProps) {
   const { transcriptionResult, preferences } = useAppStore()
   const [copied, setCopied] = useState(false)
-
-  if (!transcriptionResult) return null
-
   const dark = preferences.darkMode
-  const { transcription, confidence_score } = transcriptionResult
+  const transcription = transcriptionResult?.transcription ?? ''
+  const confidence_score = transcriptionResult?.confidence_score ?? 0
   const confidence = confidence_score > 1 ? confidence_score : confidence_score * 100
 
   // Auto-copy when preference is enabled
   useEffect(() => {
-    if (preferences.autoCopy && transcription) {
+    if (transcriptionResult && preferences.autoCopy && transcription) {
       navigator.clipboard.writeText(transcription).then(() => {
         toast.success('Transcription auto-copied to clipboard')
       })
     }
-  }, [transcription, preferences.autoCopy])
+  }, [transcriptionResult, transcription, preferences.autoCopy])
+
+  if (!transcriptionResult) return null
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(transcription)

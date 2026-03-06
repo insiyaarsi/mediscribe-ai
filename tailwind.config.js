@@ -16,7 +16,7 @@ export default {
         // Brand
         primary: {
           DEFAULT: '#1A56DB',
-          hover:   '#1648C0',
+          hover:   '#040609',
           light:   '#EBF3FF',
         },
         accent: {
