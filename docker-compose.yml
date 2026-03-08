@@ -1,0 +1,136 @@
+# =============================================================================
+# MediScribe AI — docker-compose.yml
+#
+# Services:
+#   backend   — FastAPI + Whisper + scispaCy (Python)
+#   frontend  — Vite build served by Nginx
+#   db        — PostgreSQL (commented out — Week 12)
+#
+# Usage:
+#   docker compose up --build          # build images and start all services
+#   docker compose up --build backend  # rebuild and start backend only
+#   docker compose down                # stop and remove containers
+#   docker compose down -v             # also remove named volumes (wipes DB data)
+#   docker compose logs -f backend     # tail backend logs
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mediscribe-backend
+
+    # Environment variables
+    # The .env file at the project root is loaded here. Docker Compose passes
+    # each variable as a real environment variable to the container — the same
+    # way python-dotenv reads them from the file in development.
+    # Note: load_dotenv() in main.py still works inside the container because
+    # it falls back gracefully when variables are already in the environment.
+    env_file:
+      - .env
+
+    # Expose the backend on host port 8000 for direct API testing (e.g. curl,
+    # Postman). In production on Railway, this port mapping is not needed —
+    # Railway handles port routing. But it is useful locally.
+    ports:
+      - "8000:8000"
+
+    # Named volume for the Whisper model cache.
+    # Why: The Whisper base model (140MB) is pre-downloaded during the Docker
+    # build and lives at /root/.cache/whisper inside the container. Without a
+    # volume, this cache is part of the container layer and persists as long as
+    # the container exists. With a volume, it survives container rebuilds —
+    # useful if you ever need to rebuild the image without re-downloading the model.
+    volumes:
+      - whisper-cache:/root/.cache/whisper
+
+    # Health check — tells docker compose (and Railway) when the backend is
+    # ready to accept traffic. Other services can declare `depends_on` with
+    # condition: service_healthy to wait for this.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s  # Give Uvicorn and scispaCy time to load on first start
+
+    # Restart policy: restart automatically if the process crashes.
+    # "unless-stopped" means it also restarts on Docker daemon restart,
+    # unless you explicitly ran `docker compose stop`.
+    restart: unless-stopped
+
+    networks:
+      - mediscribe-net
+
+  # ---------------------------------------------------------------------------
+  # Frontend — Nginx serving the Vite build
+  # ---------------------------------------------------------------------------
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: mediscribe-frontend
+
+    ports:
+      - "80:80"
+
+    # Wait for backend to be healthy before starting Nginx.
+    # Without this, Nginx starts immediately and the /api/ proxy may get
+    # connection refused errors on the very first requests after startup.
+    depends_on:
+      backend:
+        condition: service_healthy
+
+    restart: unless-stopped
+
+    networks:
+      - mediscribe-net
+
+  # ---------------------------------------------------------------------------
+  # Database — PostgreSQL (Week 12)
+  #
+  # Uncomment this entire service block when adding PostgreSQL in Week 12.
+  # Also uncomment the db dependency in the backend service above.
+  # ---------------------------------------------------------------------------
+  # db:
+  #   image: postgres:16-alpine
+  #   container_name: mediscribe-db
+  #   environment:
+  #     POSTGRES_USER: mediscribe
+  #     POSTGRES_PASSWORD: mediscribe_dev_password
+  #     POSTGRES_DB: mediscribe
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U mediscribe"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #   restart: unless-stopped
+  #   networks:
+  #     - mediscribe-net
+
+# =============================================================================
+# Named volumes
+# Volumes persist data across container stop/start cycles.
+# They are NOT deleted by `docker compose down` — only by `docker compose down -v`.
+# =============================================================================
+volumes:
+  whisper-cache:
+  # postgres-data:   # Uncomment with the db service in Week 12
+
+# =============================================================================
+# Networks
+# A dedicated bridge network lets containers reach each other by service name
+# (e.g. "backend", "db") without exposing ports to the host unnecessarily.
+# =============================================================================
+networks:
+  mediscribe-net:
+    driver: bridge

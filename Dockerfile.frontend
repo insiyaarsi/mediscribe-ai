@@ -1,0 +1,55 @@
+# =============================================================================
+# MediScribe AI — Frontend Dockerfile (multi-stage build)
+#
+# Stage 1 (builder): Node 20 installs dependencies and runs `vite build`
+# Stage 2 (server):  Nginx serves the static output
+#
+# Why multi-stage?
+# The Node runtime and node_modules are only needed to produce the build
+# output (HTML/CSS/JS files). They are not needed to serve those files.
+# Multi-stage builds let us discard the Node layer entirely — the final
+# image contains only Nginx and the compiled assets, typically 25-50MB
+# instead of 500MB+.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Stage 1 — Build
+# -----------------------------------------------------------------------------
+FROM node:20-slim AS builder
+
+WORKDIR /app
+
+# Copy package files first to exploit layer caching (same reason as backend).
+# node_modules is excluded by .dockerignore, so only the lock file matters here.
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install all dependencies (including devDependencies — needed for vite build)
+RUN npm ci
+
+# Copy the rest of the frontend source
+COPY frontend/ .
+
+# Build the production bundle.
+# Output goes to /app/dist — this is what we carry into the next stage.
+# VITE_API_URL is set to /api so the frontend calls its own origin,
+# which Nginx then proxies to the backend. This avoids hardcoding a backend URL.
+ENV VITE_API_URL=
+RUN npm run build
+
+# -----------------------------------------------------------------------------
+# Stage 2 — Serve
+# -----------------------------------------------------------------------------
+FROM nginx:stable-alpine AS server
+
+# Remove the default Nginx config and replace with ours
+RUN rm /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Copy the Vite build output from the builder stage
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+# Nginx starts in the foreground (daemon off) so Docker can track the process.
+# Without this, Nginx forks to the background and Docker thinks the container exited.
+CMD ["nginx", "-g", "daemon off;"]
