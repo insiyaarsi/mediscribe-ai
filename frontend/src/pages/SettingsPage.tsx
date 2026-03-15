@@ -3,6 +3,7 @@ import { useAppStore } from '../store/appStore'
 import { toast } from 'sonner'
 import { User, Sliders, Bell, Code, AlertTriangle, Save, Camera } from 'lucide-react'
 import { cn } from '../lib/utils'
+import { deleteAllHistory as deleteAllHistoryAPI, deleteMyAccount } from '../services/api'
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'api' | 'danger'
 
@@ -98,7 +99,7 @@ function FormField({
 
 export default function SettingsPage() {
   const {
-    history, clearHistory,
+    history, clearHistory, clearAuth,
     profile, updateProfile,
     preferences, updatePreferences,
     notifications, updateNotifications,
@@ -109,6 +110,7 @@ export default function SettingsPage() {
 
   const [activeTab,        setActiveTab]        = useState<SettingsTab>('profile')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false)
   const [avatarPreview,    setAvatarPreview]    = useState<string | null>(profile.avatarUrl)
 
   const [draft, setDraft] = useState({ ...profile })
@@ -146,6 +148,28 @@ export default function SettingsPage() {
   const handleSaveProfile = () => {
     updateProfile(draft)
     toast.success('Profile saved', { description: 'Your changes have been updated.' })
+  }
+
+  const handleClearHistory = async () => {
+    try {
+      await deleteAllHistoryAPI()
+      clearHistory()
+      setShowClearConfirm(false)
+      toast.success('History cleared')
+    } catch {
+      toast.error('Failed to clear history')
+    }
+  }
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteMyAccount()
+      setShowDeleteAccountConfirm(false)
+      clearAuth()
+      toast.success('Account deleted')
+    } catch {
+      toast.error('Failed to delete account')
+    }
   }
 
   const initials = `${draft.firstName[0] ?? ''}${draft.lastName[0] ?? ''}`.toUpperCase()
@@ -490,6 +514,31 @@ export default function SettingsPage() {
                     Reset Settings
                   </button>
                 </div>
+                <div className={cn(
+                  'p-5 flex items-start justify-between gap-4 border-t',
+                  dark ? 'border-[#F87171]/30' : 'border-[#FECACA]'
+                )}>
+                  <div>
+                    <div className={cn('text-[14px] font-semibold mb-1', dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]')}>
+                      Delete Account
+                    </div>
+                    <div className="text-[13px] text-[#94A3B8]">
+                      Permanently delete your account and all transcription history. This cannot be undone.
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setShowDeleteAccountConfirm(true)}
+                    className={cn(
+                      'flex-shrink-0 px-[14px] py-[7px] rounded-[8px] border text-[13px] font-medium',
+                      'transition-all duration-[180ms]',
+                      dark
+                        ? 'bg-[#5B1010] text-[#FECACA] border-[#F87171]/40 hover:bg-[#6F1515]'
+                        : 'bg-[#FEE2E2] text-[#991B1B] border-[#FCA5A5] hover:bg-[#FECACA]'
+                    )}
+                  >
+                    Delete Account
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -532,10 +581,53 @@ export default function SettingsPage() {
                 Cancel
               </button>
               <button
-                onClick={() => { clearHistory(); setShowClearConfirm(false); toast.success('History cleared') }}
+                onClick={() => { void handleClearHistory() }}
                 className="px-[16px] py-[8px] rounded-[10px] bg-[#B91C1C] text-white text-[13px] font-semibold hover:bg-[#991B1B] transition-all duration-[180ms]"
               >
                 Yes, Clear All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteAccountConfirm && (
+        <div
+          className="fixed inset-0 bg-black/50 z-[999] flex items-center justify-center"
+          onClick={e => { if (e.target === e.currentTarget) setShowDeleteAccountConfirm(false) }}
+        >
+          <div className={cn(
+            'border rounded-[14px] p-8 max-w-[420px] w-full mx-4 shadow-xl',
+            dark ? 'bg-[#1E293B] border-[#334155]' : 'bg-white border-[#E2E8F0]'
+          )}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className={cn(
+                'w-[40px] h-[40px] rounded-full flex items-center justify-center flex-shrink-0',
+                dark ? 'bg-[#5B1010]' : 'bg-[#FEE2E2]'
+              )}>
+                <AlertTriangle size={18} className="text-[#B91C1C]" />
+              </div>
+              <div>
+                <h3 className={cn('font-head text-[17px] font-bold mb-1', dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]')}>
+                  Delete Your Account?
+                </h3>
+                <p className={cn('text-[13.5px] leading-[1.6]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
+                  This permanently removes your profile, transcription history, and saved data. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setShowDeleteAccountConfirm(false)}
+                className={cancelBtnClass}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { void handleDeleteAccount() }}
+                className="px-[16px] py-[8px] rounded-[10px] bg-[#B91C1C] text-white text-[13px] font-semibold hover:bg-[#991B1B] transition-all duration-[180ms]"
+              >
+                Yes, Delete Account
               </button>
             </div>
           </div>

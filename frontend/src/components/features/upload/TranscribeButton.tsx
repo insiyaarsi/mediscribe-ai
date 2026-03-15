@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useAppStore } from '../../../store/appStore'
-import { transcribeAudio } from '../../../services/api'
+import { fetchHistory, mapHistoryEntryFromApi, transcribeAudio } from '../../../services/api'
 import { Mic, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -25,7 +25,7 @@ export default function TranscribeButton() {
   const {
     uploadState, selectedFile,
     setUploadState, setProcessingStatus, setResult,
-    setError, addToHistory,
+    setError, addToHistory, setHistory,
   } = useAppStore()
 
   const progressRef = useRef<HTMLDivElement>(null)
@@ -81,7 +81,9 @@ export default function TranscribeButton() {
         }
 
         setResult(result)
-        addToHistory(result, selectedFile)
+        void fetchHistory()
+          .then((history) => setHistory(history.map(mapHistoryEntryFromApi)))
+          .catch(() => addToHistory(result, selectedFile))
         const { notifications } = useAppStore.getState()
         if (notifications.transcriptDone) {
           toast.success('Transcription complete', {

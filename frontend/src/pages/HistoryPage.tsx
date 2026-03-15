@@ -8,6 +8,12 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { HistoryEntry } from '../types'
+import {
+  deleteAllHistory as deleteAllHistoryAPI,
+  deleteHistoryItem as deleteHistoryItemAPI,
+  fetchTranscription,
+  mapHistoryDetailToResult,
+} from '../services/api'
 
 function toPlainText(value: unknown): string {
   if (typeof value === 'string') return value
@@ -48,51 +54,74 @@ export default function HistoryPage() {
   })
 
   // ── View a past result on dashboard ───────────────────
-  const handleView = (entry: HistoryEntry) => {
-    if (!entry.result) {
-      toast.error('Result data not available for this entry')
-      return
+  const handleView = async (entry: HistoryEntry) => {
+    try {
+      const result = entry.result ?? mapHistoryDetailToResult(await fetchTranscription(Number(entry.id)))
+      setResult(result)
+      setUploadState('done')
+      setPage('dashboard')
+      toast.success('Loaded transcription result')
+    } catch {
+      toast.error('Failed to load transcription details')
     }
-    setResult(entry.result)
-    setUploadState('done')
-    setPage('dashboard')
-    toast.success('Loaded transcription result')
   }
 
   // ── Download SOAP note as .txt ─────────────────────────
-  const handleDownload = (entry: HistoryEntry) => {
-    if (!entry.result) {
-      toast.error('No SOAP note available for this entry')
-      return
-    }
-    const { soap_note } = entry.result
-    const content = [
-      `MediScribe AI — SOAP Note`,
-      `Patient ID: ${entry.patientId}`,
-      `Date: ${entry.date}`,
-      `Confidence: ${formatConfidence(entry.confidenceScore)}`,
-      '',
-      'S — SUBJECTIVE',
-      toPlainText(soap_note.subjective),
-      '',
-      'O — OBJECTIVE',
-      toPlainText(soap_note.objective),
-      '',
-      'A — ASSESSMENT',
-      toPlainText(soap_note.assessment),
-      '',
-      'P — PLAN',
-      toPlainText(soap_note.plan),
-    ].join('\n')
+  const handleDownload = async (entry: HistoryEntry) => {
+    try {
+      const result = entry.result ?? mapHistoryDetailToResult(await fetchTranscription(Number(entry.id)))
+      const { soap_note } = result
+      const content = [
+        'MediScribe AI - SOAP Note',
+        `Patient ID: ${entry.patientId}`,
+        `Date: ${entry.date}`,
+        `Confidence: ${formatConfidence(entry.confidenceScore)}`,
+        '',
+        'S - SUBJECTIVE',
+        toPlainText(soap_note.subjective),
+        '',
+        'O - OBJECTIVE',
+        toPlainText(soap_note.objective),
+        '',
+        'A - ASSESSMENT',
+        toPlainText(soap_note.assessment),
+        '',
+        'P - PLAN',
+        toPlainText(soap_note.plan),
+      ].join('\n')
 
-    const blob = new Blob([content], { type: 'text/plain' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    a.href     = url
-    a.download = `SOAP_${entry.patientId}_${entry.date.split('·')[0].trim()}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast.success('SOAP note downloaded')
+      const blob = new Blob([content], { type: 'text/plain' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `SOAP_${entry.patientId}_${entry.date.split(',')[0].trim()}.txt`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success('SOAP note downloaded')
+    } catch {
+      toast.error('No SOAP note available for this entry')
+    }
+  }
+
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      await deleteHistoryItemAPI(Number(entryId))
+      deleteHistoryItem(entryId)
+      toast.success('Entry deleted')
+    } catch {
+      toast.error('Failed to delete entry')
+    }
+  }
+
+  const handleDeleteAll = async () => {
+    try {
+      await deleteAllHistoryAPI()
+      clearHistory()
+      setShowDeleteAll(false)
+      toast.success('All history deleted')
+    } catch {
+      toast.error('Failed to delete history')
+    }
   }
 
   // ── Confidence badge styling ───────────────────────────
@@ -301,21 +330,21 @@ export default function HistoryPage() {
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleView(entry)}
+                          onClick={() => { void handleView(entry) }}
                           title="View result"
                           className={actionBtnClass}
                         >
                           <Eye size={13} />
                         </button>
                         <button
-                          onClick={() => handleDownload(entry)}
+                          onClick={() => { void handleDownload(entry) }}
                           title="Download SOAP note"
                           className={actionBtnClass}
                         >
                           <Download size={13} />
                         </button>
                         <button
-                          onClick={() => { deleteHistoryItem(entry.id); toast.success('Entry deleted') }}
+                          onClick={() => { void handleDeleteEntry(entry.id) }}
                           title="Delete entry"
                           className={cn(actionBtnClass, 'hover:border-red-400 hover:text-red-500')}
                         >
@@ -389,7 +418,7 @@ export default function HistoryPage() {
                 Cancel
               </button>
               <button
-                onClick={() => { clearHistory(); setShowDeleteAll(false); toast.success('All history deleted') }}
+                onClick={() => { void handleDeleteAll() }}
                 className="px-[16px] py-[8px] rounded-[10px] bg-[#B91C1C] text-white text-[13px] font-semibold hover:bg-[#991B1B] transition-all duration-[180ms]"
               >
                 Yes, Delete All

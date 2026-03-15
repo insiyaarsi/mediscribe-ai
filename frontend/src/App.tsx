@@ -7,9 +7,10 @@ import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
+import { fetchCurrentUser, fetchHistory, getStoredToken, mapHistoryEntryFromApi } from './services/api'
 
 export default function App() {
-  const { currentPage, sidebarCollapsed, preferences } = useAppStore()
+  const { currentPage, sidebarCollapsed, preferences, isAuthenticated, setAuth, setHistory, clearAuth, setPage } = useAppStore()
 
   // Dark mode
   useEffect(() => {
@@ -19,6 +20,36 @@ export default function App() {
       document.documentElement.classList.remove('dark')
     }
   }, [preferences.darkMode])
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token || isAuthenticated) return
+
+    let cancelled = false
+
+    const restoreSession = async () => {
+      try {
+        const user = await fetchCurrentUser()
+        if (cancelled) return
+
+        setAuth(user, token, Boolean(localStorage.getItem('mediscribe_token')))
+
+        const history = await fetchHistory()
+        if (cancelled) return
+
+        setHistory(history.map(mapHistoryEntryFromApi))
+        setPage('dashboard')
+      } catch {
+        if (!cancelled) clearAuth()
+      }
+    }
+
+    void restoreSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [clearAuth, isAuthenticated, setAuth, setHistory, setPage])
 
   // Login page — full screen, no sidebar
   if (currentPage === 'login') {
