@@ -1,9 +1,20 @@
+// appStore.ts
+// Zustand store.
+//
+// Auth changes from the previous version:
+// - Added `authToken` and `currentUser` state (not persisted to localStorage —
+//   the token lives in localStorage directly, managed by api.ts interceptor)
+// - `profile` is now populated from the JWT login response instead of hardcoded
+// - History is still stored in Zustand for UI responsiveness, but is loaded from
+//   the API on login and written to the API on new transcriptions. The Zustand
+//   history array acts as the in-memory cache of the server state.
+
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppPage, HistoryEntry, TranscriptionResult, UploadState } from '../types'
-import { formatDate, generatePatientId } from '../lib/utils'
+import { formatDate } from '../lib/utils'
+import { clearStoredToken, type UserPublic } from '../services/api'
 
-// ── Settings shape ────────────────────────────────────────
 interface UserProfile {
   firstName:  string
   lastName:   string
@@ -29,10 +40,10 @@ interface NotificationSettings {
 }
 
 const DEFAULT_PROFILE: UserProfile = {
-  firstName:  'Insiya',
-  lastName:   'Arsi',
-  email:      'insiya@mediscribe.ai',
-  specialty:  'General Practice',
+  firstName:  '',
+  lastName:   '',
+  email:      '',
+  specialty:  '',
   hospital:   '',
   licenseNo:  '',
   avatarUrl:  null,
@@ -61,6 +72,12 @@ interface AppState {
   sidebarCollapsed: boolean
   toggleSidebar:    () => void
 
+  // Auth
+  isAuthenticated: boolean
+  authUser:        UserPublic | null
+  setAuth:         (user: UserPublic) => void
+  clearAuth:       () => void
+
   // Upload & transcription
   uploadState:         UploadState
   selectedFile:        File | null
@@ -75,13 +92,14 @@ interface AppState {
   setError:            (msg: string | null) => void
   clearUpload:         () => void
 
-  // History
-  history:             HistoryEntry[]
-  addToHistory:        (result: TranscriptionResult, file: File) => void
-  deleteHistoryItem:   (id: string) => void
-  clearHistory:        () => void
+  // History — loaded from API on login, cached in Zustand for UI
+  history:           HistoryEntry[]
+  addToHistory:      (result: TranscriptionResult, file: File) => void
+  setHistory:        (entries: HistoryEntry[]) => void
+  deleteHistoryItem: (id: string) => void
+  clearHistory:      () => void
 
-  // Settings — persisted
+  // Settings
   profile:             UserProfile
   preferences:         Preferences
   notifications:       NotificationSettings
@@ -103,18 +121,51 @@ export const useAppStore = create<AppState>()(
       sidebarCollapsed: false,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-      // Upload & transcription — NOT persisted (reset on reload is correct)
+      // Auth
+      // isAuthenticated and authUser are not persisted — on reload the app
+      // starts at the login page. The token in localStorage is used by api.ts
+      // to attempt a session restore via GET /api/auth/me (handled in App.tsx).
+      isAuthenticated: false,
+      authUser: null,
+      setAuth: (user) => {
+        set({
+          isAuthenticated: true,
+          authUser: user,
+          history: [],          // clear previous user's history before loading new user's
+          profile: {
+            firstName: user.first_name,
+            lastName:  user.last_name,
+            email:     user.email,
+            specialty: user.specialty ?? '',
+            hospital:  user.hospital  ?? '',
+            licenseNo: user.license_no ?? '',
+            avatarUrl: null,
+          },
+        })
+      },
+      clearAuth: () => {
+        clearStoredToken()
+        set({
+          isAuthenticated: false,
+          authUser:        null,
+          currentPage:     'login',
+          history:         [],
+          profile:         { ...DEFAULT_PROFILE },
+        })
+      },
+
+      // Upload & transcription
       uploadState:         'idle',
       selectedFile:        null,
       transcriptionResult: null,
       processingStatus:    '',
       errorMessage:        null,
 
-      setFile:          (file) => set({ selectedFile: file, uploadState: file ? 'selected' : 'idle', errorMessage: null }),
-      setUploadState:   (state) => set({ uploadState: state }),
+      setFile:             (file) => set({ selectedFile: file, uploadState: file ? 'selected' : 'idle', errorMessage: null }),
+      setUploadState:      (state) => set({ uploadState: state }),
       setProcessingStatus: (status) => set({ processingStatus: status }),
-      setResult:        (result) => set({ transcriptionResult: result, uploadState: 'done' }),
-      setError:         (msg) => set({ errorMessage: msg, uploadState: 'error' }),
+      setResult:           (result) => set({ transcriptionResult: result, uploadState: 'done' }),
+      setError:            (msg) => set({ errorMessage: msg, uploadState: 'error' }),
       clearUpload: () => set({
         uploadState: 'idle', selectedFile: null,
         transcriptionResult: null, processingStatus: '', errorMessage: null,
@@ -126,7 +177,7 @@ export const useAppStore = create<AppState>()(
         const entry: HistoryEntry = {
           id:              crypto.randomUUID(),
           date:            formatDate(new Date()),
-          patientId:       generatePatientId(),
+          patientId:       `PT-${Math.floor(Math.random() * 90000) + 10000}`,
           duration:        `${Math.floor(file.size / 100000)}:${String(Math.floor(Math.random() * 59)).padStart(2, '0')}`,
           entityCount:     result.entities.length,
           confidenceScore: result.confidence_score > 1 ? result.confidence_score : result.confidence_score * 100,
@@ -135,32 +186,30 @@ export const useAppStore = create<AppState>()(
         }
         set((s) => ({ history: [entry, ...s.history] }))
       },
+      setHistory: (entries) => set({ history: entries }),
       deleteHistoryItem: (id) => set((s) => ({ history: s.history.filter(h => h.id !== id) })),
       clearHistory: () => set({ history: [] }),
 
       // Settings
-      profile: { ...DEFAULT_PROFILE },
-      preferences: { ...DEFAULT_PREFERENCES },
+      profile:       { ...DEFAULT_PROFILE },
+      preferences:   { ...DEFAULT_PREFERENCES },
       notifications: { ...DEFAULT_NOTIFICATIONS },
 
       updateProfile:       (p) => set((s) => ({ profile:       { ...s.profile,       ...p } })),
       updatePreferences:   (p) => set((s) => ({ preferences:   { ...s.preferences,   ...p } })),
       updateNotifications: (n) => set((s) => ({ notifications: { ...s.notifications, ...n } })),
       resetSettings: () => set({
-        profile: { ...DEFAULT_PROFILE },
-        preferences: { ...DEFAULT_PREFERENCES },
+        preferences:   { ...DEFAULT_PREFERENCES },
         notifications: { ...DEFAULT_NOTIFICATIONS },
       }),
     }),
     {
       name: 'mediscribe-storage',
-      // Only persist these keys — skip non-serialisable File objects
       partialize: (s) => ({
-        history:       s.history,
-        profile:       s.profile,
-        preferences:   s.preferences,
-        notifications: s.notifications,
+        preferences:      s.preferences,
+        notifications:    s.notifications,
         sidebarCollapsed: s.sidebarCollapsed,
+        // history and profile are intentionally excluded — they come from the API
       }),
     }
   )

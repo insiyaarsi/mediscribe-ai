@@ -1,0 +1,74 @@
+# =============================================================================
+# MediScribe AI — .dockerignore
+#
+# Docker sends the "build context" (all files in the project directory) to the
+# Docker daemon before building. Files listed here are excluded from that
+# transfer. This has two benefits:
+#   1. Faster builds — less data transferred to the daemon
+#   2. Smaller images — build cache layers don't include junk files
+#   3. Security — .env and secrets are not accidentally baked into the image
+#
+# Note: .env is excluded here. Environment variables are passed to containers
+# at runtime via the env_file directive in docker-compose.yml, not baked in.
+# =============================================================================
+
+# Environment files — never bake secrets into an image
+.env
+.env.*
+!.env.example
+
+# Git metadata — not needed inside the container
+.git
+.gitignore
+.gitattributes
+
+# Python cache and bytecode
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info
+dist/
+build/
+.eggs/
+
+# Python virtual environments
+.venv
+venv
+env
+ENV
+
+# Node modules — the frontend Dockerfile runs npm ci inside the container
+# from scratch, so the local node_modules should never be copied in
+frontend/node_modules
+
+# Vite build output — also rebuilt inside the container
+frontend/dist
+frontend/.vite
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea
+.vscode
+
+# Test artifacts
+.pytest_cache
+htmlcov
+.coverage
+coverage.xml
+*.log
+
+# README and documentation (not needed at runtime)
+README.md
+*.md
+docs/
+
+# Whisper model cache (pre-downloaded during build via the RUN python command,
+# not via copying from the host). Excluding this prevents accidentally copying
+# a 140MB model file if it exists locally.
+backend/.cache
+*.pt

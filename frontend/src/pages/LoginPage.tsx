@@ -1,8 +1,15 @@
+// LoginPage.tsx
+// UI is identical to the previous version.
+// The only change is handleSubmit — it now calls the real auth API instead
+// of simulating a delay. On success it stores the token via setAuth() and
+// navigates to the dashboard.
+
 import { useState } from 'react'
 import { useAppStore } from '../store/appStore'
 import { Zap, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '../lib/utils'
+import { fetchHistory, loginUser, mapHistoryEntryFromApi, registerUser, setStoredToken } from '../services/api'
 
 const STATS = [
   { value: '8→3 min', label: 'Documentation time'  },
@@ -17,7 +24,7 @@ const TESTIMONIAL = {
 }
 
 export default function LoginPage() {
-  const { setPage, preferences } = useAppStore()
+  const { setPage, preferences, setAuth, setHistory } = useAppStore()
   const dark = preferences.darkMode
 
   const [email,     setEmail]     = useState('')
@@ -27,7 +34,6 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [mode,      setMode]      = useState<'login' | 'register'>('login')
 
-  // Register fields
   const [firstName, setFirstName] = useState('')
   const [lastName,  setLastName]  = useState('')
   const [specialty, setSpecialty] = useState('')
@@ -49,27 +55,62 @@ export default function LoginPage() {
     }
 
     setIsLoading(true)
-    await new Promise(resolve => setTimeout(resolve, 1200))
-    setIsLoading(false)
 
-    toast.success(mode === 'login' ? 'Welcome back!' : 'Account created!', {
-      description: mode === 'login'
-        ? 'Redirecting to your dashboard...'
-        : 'Your account is ready. Redirecting...',
-    })
+    try {
+      const response = mode === 'login'
+        ? await loginUser(email, password)
+        : await registerUser({
+            email,
+            password,
+            first_name: firstName,
+            last_name:  lastName,
+            specialty:  specialty || undefined,
+          })
 
-    setTimeout(() => setPage('dashboard'), 600)
+      // Persist the token before updating app state so "Remember me" remains
+      // the only place that decides where the token lives.
+      setStoredToken(response.access_token, remember)
+      setAuth(response.user)
+
+      // Load this user's history from the database immediately after login.
+      // This replaces whatever was in the local cache with server data for
+      // this specific user — fixing the cross-user data bleed.
+      try {
+        const apiHistory = await fetchHistory()
+        setHistory(apiHistory.map(mapHistoryEntryFromApi))
+      } catch {
+        // Non-fatal — user lands on dashboard with empty history
+        // which is better than showing another user's data
+        setHistory([])
+      }
+
+
+      toast.success(mode === 'login' ? 'Welcome back!' : 'Account created!', {
+        description: mode === 'login'
+          ? 'Redirecting to your dashboard...'
+          : 'Your account is ready. Redirecting...',
+      })
+
+      setTimeout(() => setPage('dashboard'), 600)
+
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail
+        ?? (mode === 'login' ? 'Incorrect email or password' : 'Registration failed. Please try again.')
+      toast.error(message)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
     <div className="flex w-full min-h-screen">
 
-      {/* ── Left panel — intentionally always dark ────────── */}
+      {/* Left panel — intentionally always dark */}
       <div
         className="hidden lg:flex flex-col justify-between w-[48%] min-h-screen p-[52px] relative overflow-hidden"
         style={{ background: 'linear-gradient(145deg, #0D1B2A 0%, #0F2D4A 50%, #0A1E32 100%)' }}
       >
-        {/* Subtle grid overlay */}
         <div
           className="absolute inset-0 pointer-events-none opacity-[0.03]"
           style={{
@@ -78,19 +119,14 @@ export default function LoginPage() {
           }}
         />
 
-        {/* Logo */}
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-12">
             <div className="w-[42px] h-[42px] rounded-[10px] bg-gradient-to-br from-[#1A56DB] to-[#0BA871] flex items-center justify-center">
               <Zap size={22} className="text-white" fill="white" />
             </div>
             <div>
-              <div className="font-head text-[18px] font-bold text-white leading-tight">
-                MediScribe AI
-              </div>
-              <div className="text-[10px] text-[#4A6080] uppercase tracking-[0.05em]">
-                Clinical Documentation
-              </div>
+              <div className="font-head text-[18px] font-bold text-white leading-tight">MediScribe AI</div>
+              <div className="text-[10px] text-[#4A6080] uppercase tracking-[0.05em]">Clinical Documentation</div>
             </div>
           </div>
 
@@ -105,15 +141,12 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Testimonial */}
         <div className="relative z-10">
           <div
             className="rounded-[14px] p-6 mb-8"
             style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
           >
-            <p className="text-[13.5px] text-[#94A3B8] leading-[1.75] mb-4 italic">
-              {TESTIMONIAL.quote}
-            </p>
+            <p className="text-[13.5px] text-[#94A3B8] leading-[1.75] mb-4 italic">{TESTIMONIAL.quote}</p>
             <div className="flex items-center gap-3">
               <div className="w-[34px] h-[34px] rounded-full bg-gradient-to-br from-[#1A56DB] to-[#0BA871] flex items-center justify-center flex-shrink-0">
                 <span className="font-head text-[11px] font-bold text-white">RK</span>
@@ -125,13 +158,10 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Stats */}
           <div className="flex gap-8">
             {STATS.map(s => (
               <div key={s.label}>
-                <div className="font-head text-[26px] font-extrabold text-white leading-none mb-1">
-                  {s.value}
-                </div>
+                <div className="font-head text-[26px] font-extrabold text-white leading-none mb-1">{s.value}</div>
                 <div className="text-[11.5px] text-[#4A6080]">{s.label}</div>
               </div>
             ))}
@@ -139,14 +169,10 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right panel ──────────────────────────────────── */}
-      <div className={cn(
-        'flex-1 flex items-center justify-center px-6 py-12',
-        dark ? 'bg-[#0F172A]' : 'bg-[#F7FAFC]'
-      )}>
+      {/* Right panel */}
+      <div className={cn('flex-1 flex items-center justify-center px-6 py-12', dark ? 'bg-[#0F172A]' : 'bg-[#F7FAFC]')}>
         <div className="w-full max-w-[400px]">
 
-          {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-8 lg:hidden">
             <div className="w-[36px] h-[36px] rounded-[8px] bg-gradient-to-br from-[#1A56DB] to-[#0BA871] flex items-center justify-center">
               <Zap size={18} className="text-white" fill="white" />
@@ -156,21 +182,14 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* Heading */}
           <h2 className={cn('font-head text-[26px] font-bold mb-1', dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]')}>
             {mode === 'login' ? 'Welcome back' : 'Create your account'}
           </h2>
           <p className={cn('text-[14px] mb-7', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
-            {mode === 'login'
-              ? 'Sign in to your MediScribe account'
-              : 'Get started with MediScribe AI for free'
-            }
+            {mode === 'login' ? 'Sign in to your MediScribe account' : 'Get started with MediScribe AI for free'}
           </p>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
-
-            {/* Register-only fields */}
             {mode === 'register' && (
               <div className="grid grid-cols-2 gap-3">
                 <AuthField dark={dark} label="First Name" type="text"  value={firstName} onChange={setFirstName} placeholder="First name" />
@@ -183,7 +202,6 @@ export default function LoginPage() {
 
             <AuthField dark={dark} label="Email address" type="email" value={email} onChange={setEmail} placeholder="dr.smith@hospital.com" />
 
-            {/* Password — inline because of show/hide toggle */}
             <div>
               <label className={cn('block text-[13px] font-semibold mb-[5px]', dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]')}>
                 Password
@@ -212,7 +230,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember me / Forgot password */}
             {mode === 'login' && (
               <div className="flex items-center justify-between">
                 <label className="flex items-center gap-2 cursor-pointer">
@@ -222,24 +239,18 @@ export default function LoginPage() {
                     onChange={e => setRemember(e.target.checked)}
                     className="w-[14px] h-[14px] accent-[#1A56DB] cursor-pointer"
                   />
-                  <span className={cn('text-[13px]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
-                    Remember me
-                  </span>
+                  <span className={cn('text-[13px]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>Remember me</span>
                 </label>
                 <button
                   type="button"
                   onClick={() => toast.info('Password reset coming in a future update')}
-                  className={cn(
-                    'text-[13px] font-medium underline transition-colors hover:text-[#1A56DB]',
-                    dark ? 'text-[#94A3B8]' : 'text-[#4A5568]'
-                  )}
+                  className={cn('text-[13px] font-medium underline transition-colors hover:text-[#1A56DB]', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}
                 >
                   Forgot password?
                 </button>
               </div>
             )}
 
-            {/* Submit */}
             <button
               type="submit"
               disabled={isLoading}
@@ -265,14 +276,12 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className={cn('flex-1 h-px', dark ? 'bg-[#334155]' : 'bg-[#E2E8F0]')} />
             <span className="text-[12px] text-[#94A3B8]">or</span>
             <div className={cn('flex-1 h-px', dark ? 'bg-[#334155]' : 'bg-[#E2E8F0]')} />
           </div>
 
-          {/* Google SSO — placeholder */}
           <button
             type="button"
             onClick={() => toast.info('Google SSO coming in a future update')}
@@ -288,18 +297,13 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          {/* Mode switch */}
           <p className={cn('text-center text-[13.5px] mt-5', dark ? 'text-[#94A3B8]' : 'text-[#4A5568]')}>
             {mode === 'login'
               ? <>Don't have an account?{' '}
-                  <button type="button" onClick={() => setMode('register')} className="text-[#1A56DB] font-semibold hover:underline">
-                    Sign up free
-                  </button>
+                  <button type="button" onClick={() => setMode('register')} className="text-[#1A56DB] font-semibold hover:underline">Sign up free</button>
                 </>
               : <>Already have an account?{' '}
-                  <button type="button" onClick={() => setMode('login')} className="text-[#1A56DB] font-semibold hover:underline">
-                    Sign in
-                  </button>
+                  <button type="button" onClick={() => setMode('login')} className="text-[#1A56DB] font-semibold hover:underline">Sign in</button>
                 </>
             }
           </p>
@@ -316,17 +320,13 @@ export default function LoginPage() {
   )
 }
 
-// ── Reusable auth field ───────────────────────────────────
 function AuthField({ label, type, value, onChange, placeholder, dark }: {
   label: string; type: string; value: string
   onChange: (v: string) => void; placeholder?: string; dark: boolean
 }) {
   return (
     <div>
-      <label className={cn(
-        'block text-[13px] font-semibold mb-[5px]',
-        dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]'
-      )}>
+      <label className={cn('block text-[13px] font-semibold mb-[5px]', dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]')}>
         {label}
       </label>
       <input
@@ -344,7 +344,6 @@ function AuthField({ label, type, value, onChange, placeholder, dark }: {
   )
 }
 
-// ── Google icon SVG ───────────────────────────────────────
 function GoogleIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24">

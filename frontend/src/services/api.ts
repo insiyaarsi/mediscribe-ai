@@ -1,17 +1,226 @@
+// api.ts
+// Axios instance plus all API call functions.
+//
+// Token handling: a request interceptor reads the JWT from localStorage and
+// attaches it as "Authorization: Bearer <token>" on every outgoing request.
+// This means individual call sites do not need to think about auth headers —
+// the interceptor handles it transparently.
+
 import axios from 'axios'
-import type { TranscriptionResult } from '../types'
+import type { HistoryEntry, TranscriptionResult } from '../types'
+
+const TOKEN_KEY = 'mediscribe_token'
+
+export function getStoredToken(): string | null {
+  return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY)
+}
+
+export function setStoredToken(token: string, remember?: boolean): void {
+  if (remember === undefined) {
+    if (localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(TOKEN_KEY, token)
+      sessionStorage.removeItem(TOKEN_KEY)
+      return
+    }
+
+    sessionStorage.setItem(TOKEN_KEY, token)
+    localStorage.removeItem(TOKEN_KEY)
+    return
+  }
+
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token)
+    sessionStorage.removeItem(TOKEN_KEY)
+    return
+  }
+
+  sessionStorage.setItem(TOKEN_KEY, token)
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+export function clearStoredToken(): void {
+  sessionStorage.removeItem(TOKEN_KEY)
+  localStorage.removeItem(TOKEN_KEY)
+}
+
+const configuredBaseUrl = import.meta.env.VITE_API_URL
+const apiBaseUrl =
+  configuredBaseUrl === undefined
+    ? 'http://localhost:8000'
+    : configuredBaseUrl
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
-  timeout: 120000, // 2 minutes — Whisper can be slow on first run
+  baseURL: apiBaseUrl,
+  timeout: 120000,
 })
+
+// ── Request interceptor — attach JWT ─────────────────────────────────────────
+// Every request goes through here before it is sent. If a token exists in
+// localStorage, it is added to the Authorization header. If not, the request
+// goes out unauthenticated (the backend will return 401 for protected routes).
+api.interceptors.request.use((config) => {
+  const token = getStoredToken()
+  const isAuthRoute = config.url?.includes('/api/auth/login') ||
+                      config.url?.includes('/api/auth/register')
+  if (token && !isAuthRoute) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+// ── Response interceptor — handle expired tokens ─────────────────────────────
+// If any request returns 401, the token is expired or invalid. Clear it and
+// redirect to login so the user is not stuck on a broken session.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const isAuthEndpoint =
+        error.config?.url?.includes('/api/auth/login') ||
+        error.config?.url?.includes('/api/auth/register')
+      // Only force logout for non-auth endpoints — a 401 on /login just means
+      // wrong credentials, not an expired session
+      if (!isAuthEndpoint) {
+        clearStoredToken()
+        window.location.reload()
+      }
+    }
+    return Promise.reject(error)
+  }
+)
+
+
+// ── Auth ──────────────────────────────────────────────────────────────────────
+
+export interface UserPublic {
+  id:         number
+  email:      string
+  first_name: string
+  last_name:  string
+  specialty:  string | null
+  hospital:   string | null
+  license_no: string | null
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type:   string
+  user:         UserPublic
+}
+
+export async function loginUser(email: string, password: string): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/api/auth/login', { email, password })
+  return response.data
+}
+
+export async function registerUser(payload: {
+  email:      string
+  password:   string
+  first_name: string
+  last_name:  string
+  specialty?: string
+}): Promise<AuthResponse> {
+  const response = await api.post<AuthResponse>('/api/auth/register', payload)
+  return response.data
+}
+
+export async function fetchCurrentUser(): Promise<UserPublic> {
+  const response = await api.get<UserPublic>('/api/auth/me')
+  return response.data
+}
+
+export async function deleteMyAccount(): Promise<void> {
+  await api.delete('/api/auth/me')
+}
+
+
+// ── History ───────────────────────────────────────────────────────────────────
+
+export interface HistoryEntryAPI {
+  id:               number
+  patient_id:       string
+  filename:         string
+  transcription:    string
+  confidence_score: number
+  duration:         string | null
+  status:           string
+  created_at:       string
+  entities:         Array<{
+    text: string; label: string; confidence: number; start: number; end: number
+  }>
+  soap_note: {
+    subjective: string; objective: string; assessment: string; plan: string; source: string
+  } | null
+}
+
+export async function fetchHistory(): Promise<HistoryEntryAPI[]> {
+  const response = await api.get<HistoryEntryAPI[]>('/api/history')
+  return response.data
+}
+
+export async function fetchTranscription(id: number): Promise<HistoryEntryAPI> {
+  const response = await api.get<HistoryEntryAPI>(`/api/history/${id}`)
+  return response.data
+}
+
+export async function deleteHistoryItem(id: number): Promise<void> {
+  await api.delete(`/api/history/${id}`)
+}
+
+export async function deleteAllHistory(): Promise<void> {
+  await api.delete('/api/history')
+}
+
+export function mapHistoryEntryFromApi(entry: HistoryEntryAPI): HistoryEntry {
+  return {
+    id:              String(entry.id),
+    date:            new Date(entry.created_at).toLocaleString(),
+    patientId:       entry.patient_id,
+    duration:        entry.duration ?? '0:00',
+    entityCount:     entry.entities.length,
+    confidenceScore: entry.confidence_score,
+    status:          mapHistoryStatus(entry.status),
+    result:          undefined,
+  }
+}
+
+export function mapHistoryDetailToResult(entry: HistoryEntryAPI): TranscriptionResult {
+  return {
+    transcription: entry.transcription,
+    entities: entry.entities.map((entity) => ({
+      text: entity.text,
+      label: entity.label.toUpperCase(),
+      confidence: entity.confidence,
+      start: entity.start,
+      end: entity.end,
+    })),
+    soap_note: {
+      subjective: entry.soap_note?.subjective ?? '',
+      objective:  entry.soap_note?.objective ?? '',
+      assessment: entry.soap_note?.assessment ?? '',
+      plan:       entry.soap_note?.plan ?? '',
+    },
+    confidence_score: entry.confidence_score,
+  }
+}
+
+function mapHistoryStatus(status: string): HistoryEntry['status'] {
+  const normalized = status.toLowerCase()
+  if (normalized === 'complete' || normalized === 'completed' || normalized === 'success') {
+    return 'complete'
+  }
+  if (normalized === 'processing' || normalized === 'pending' || normalized === 'in_progress') {
+    return 'processing'
+  }
+  return 'failed'
+}
+
+
+// ── Transcription ─────────────────────────────────────────────────────────────
 
 function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
   const data = (payload ?? {}) as Record<string, unknown>
 
-  // ── Entity extraction ───────────────────────────────────────────────────────
-  // Backend returns entities as a nested object: { total, breakdown, categorized, all_entities[] }
-  // OR as a flat array (fallback path). Both shapes are handled here.
   const rawEntities = data.entities
   const rawList: unknown[] = Array.isArray(rawEntities)
     ? rawEntities
@@ -19,25 +228,9 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
       ? (rawEntities as { all_entities: unknown[] }).all_entities
       : []
 
-  // ── Label normalisation ─────────────────────────────────────────────────────
-  // The NER model returns CHEMICAL and DISEASE labels.
-  // The backend dictionary scan returns SYMPTOM, TEST, and PROCEDURE labels.
-  //
-  // For SYMPTOM/TEST/PROCEDURE entities, we preserve the label exactly so
-  // getEntityCategory() in utils.ts can map them directly to the correct
-  // EntityCategory without falling back to keyword matching.
-  //
-  // For CHEMICAL and DISEASE entities, the label is preserved as-is —
-  // getEntityCategory() already handles those two cases.
-  //
-  // Prior to this fix, normalizeTranscriptionResult() was dropping all labels
-  // except CHEMICAL/DISEASE by not reading the label field consistently,
-  // meaning every entity ended up as CONDITION or MEDICATION regardless of
-  // what the backend identified.
   const entities = rawList.map((e) => {
     const ent = (e ?? {}) as Record<string, unknown>
     const label = typeof ent.label === 'string' ? ent.label.toUpperCase() : 'UNKNOWN'
-
     return {
       text:       typeof ent.text === 'string' ? ent.text : '',
       label,
@@ -47,17 +240,10 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
     }
   })
 
-  // ── SOAP note ───────────────────────────────────────────────────────────────
   const soapNote = (data.soap_note ?? {
-    subjective: '',
-    objective:  '',
-    assessment: '',
-    plan:       '',
+    subjective: '', objective: '', assessment: '', plan: '',
   }) as TranscriptionResult['soap_note']
 
-  // ── Confidence score ────────────────────────────────────────────────────────
-  // Backend returns confidence_score inside validation.confidence_score (0-1).
-  // Normalise to a number here; addToHistory() converts to 0-100.
   const confidenceScore =
     typeof data.confidence_score === 'number'
       ? data.confidence_score
@@ -77,11 +263,9 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
 export async function transcribeAudio(file: File): Promise<TranscriptionResult> {
   const formData = new FormData()
   formData.append('file', file)
-
   const response = await api.post<TranscriptionResult>('/api/transcribe', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })
-
   return normalizeTranscriptionResult(response.data)
 }
 

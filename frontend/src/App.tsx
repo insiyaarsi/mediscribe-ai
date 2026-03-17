@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from './store/appStore'
 import { cn } from './lib/utils'
 import Sidebar from './components/layout/Sidebar'
@@ -7,9 +7,11 @@ import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import SettingsPage from './pages/SettingsPage'
 import LoginPage from './pages/LoginPage'
+import { fetchCurrentUser, fetchHistory, getStoredToken, mapHistoryEntryFromApi } from './services/api'
 
 export default function App() {
-  const { currentPage, sidebarCollapsed, preferences } = useAppStore()
+  const { currentPage, sidebarCollapsed, preferences, isAuthenticated, setAuth, setHistory, clearAuth, setPage } = useAppStore()
+  const [isRestoringSession, setIsRestoringSession] = useState(true)
 
   // Dark mode
   useEffect(() => {
@@ -19,6 +21,49 @@ export default function App() {
       document.documentElement.classList.remove('dark')
     }
   }, [preferences.darkMode])
+
+  useEffect(() => {
+    const token = getStoredToken()
+    if (!token || isAuthenticated) {
+      setIsRestoringSession(false)
+      return
+    }
+
+    let cancelled = false
+
+    const restoreSession = async () => {
+      try {
+        const user = await fetchCurrentUser()
+        if (cancelled) return
+
+        setAuth(user)
+        setPage('dashboard')
+
+        try {
+          const history = await fetchHistory()
+          if (cancelled) return
+
+          setHistory(history.map(mapHistoryEntryFromApi))
+        } catch {
+          if (!cancelled) setHistory([])
+        }
+      } catch {
+        if (!cancelled) clearAuth()
+      } finally {
+        if (!cancelled) setIsRestoringSession(false)
+      }
+    }
+
+    void restoreSession()
+
+    return () => {
+      cancelled = true
+    }
+  }, [clearAuth, isAuthenticated, setAuth, setHistory, setPage])
+
+  if (isRestoringSession) {
+    return null
+  }
 
   // Login page — full screen, no sidebar
   if (currentPage === 'login') {

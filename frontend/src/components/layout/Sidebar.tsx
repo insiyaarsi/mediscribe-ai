@@ -1,6 +1,7 @@
 import { useAppStore } from '../../store/appStore'
 import { cn } from '../../lib/utils'
 import type { AppPage } from '../../types'
+import { toast } from 'sonner'
 import {
   LayoutDashboard,
   Clock,
@@ -25,16 +26,17 @@ const NAV_ITEMS: NavItem[] = [
 ]
 
 export default function Sidebar() {
-  const { currentPage, setPage, sidebarCollapsed, toggleSidebar, history, profile } = useAppStore()
+  const { currentPage, setPage, sidebarCollapsed, toggleSidebar, history, profile, clearAuth  } = useAppStore()
   const initials = `${profile.firstName?.[0] ?? ''}${profile.lastName?.[0] ?? ''}`.toUpperCase()
 
   const handleNav = (id: NavItem['id']) => {
-  if (id === 'logout') {
-    setPage('login')
-    return
+    if (id === 'logout') {
+      clearAuth()
+      toast.success('Sign Out Successfull')
+      return
+    }
+    setPage(id as AppPage)
   }
-  setPage(id as AppPage)
-}
 
   return (
     <aside
