@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAppStore } from './store/appStore'
 import { cn } from './lib/utils'
 import Sidebar from './components/layout/Sidebar'
@@ -11,6 +11,7 @@ import { fetchCurrentUser, fetchHistory, getStoredToken, mapHistoryEntryFromApi 
 
 export default function App() {
   const { currentPage, sidebarCollapsed, preferences, isAuthenticated, setAuth, setHistory, clearAuth, setPage } = useAppStore()
+  const [isRestoringSession, setIsRestoringSession] = useState(true)
 
   // Dark mode
   useEffect(() => {
@@ -23,7 +24,10 @@ export default function App() {
 
   useEffect(() => {
     const token = getStoredToken()
-    if (!token || isAuthenticated) return
+    if (!token || isAuthenticated) {
+      setIsRestoringSession(false)
+      return
+    }
 
     let cancelled = false
 
@@ -32,15 +36,21 @@ export default function App() {
         const user = await fetchCurrentUser()
         if (cancelled) return
 
-        setAuth(user, token, Boolean(localStorage.getItem('mediscribe_token')))
-
-        const history = await fetchHistory()
-        if (cancelled) return
-
-        setHistory(history.map(mapHistoryEntryFromApi))
+        setAuth(user)
         setPage('dashboard')
+
+        try {
+          const history = await fetchHistory()
+          if (cancelled) return
+
+          setHistory(history.map(mapHistoryEntryFromApi))
+        } catch {
+          if (!cancelled) setHistory([])
+        }
       } catch {
         if (!cancelled) clearAuth()
+      } finally {
+        if (!cancelled) setIsRestoringSession(false)
       }
     }
 
@@ -50,6 +60,10 @@ export default function App() {
       cancelled = true
     }
   }, [clearAuth, isAuthenticated, setAuth, setHistory, setPage])
+
+  if (isRestoringSession) {
+    return null
+  }
 
   // Login page — full screen, no sidebar
   if (currentPage === 'login') {

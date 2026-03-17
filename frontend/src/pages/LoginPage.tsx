@@ -9,7 +9,7 @@ import { useAppStore } from '../store/appStore'
 import { Zap, Eye, EyeOff, ArrowRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '../lib/utils'
-import { fetchHistory, loginUser, mapHistoryEntryFromApi, registerUser } from '../services/api'
+import { fetchHistory, loginUser, mapHistoryEntryFromApi, registerUser, setStoredToken } from '../services/api'
 
 const STATS = [
   { value: '8→3 min', label: 'Documentation time'  },
@@ -67,10 +67,10 @@ export default function LoginPage() {
             specialty:  specialty || undefined,
           })
 
-      // Store token and user in the Zustand store.
-      // setAuth() writes the token to localStorage (picked up by api.ts interceptor)
-      // and populates the profile slice with the real user data.
-      setAuth(response.user, response.access_token, remember)
+      // Persist the token before updating app state so "Remember me" remains
+      // the only place that decides where the token lives.
+      setStoredToken(response.access_token, remember)
+      setAuth(response.user)
 
       // Load this user's history from the database immediately after login.
       // This replaces whatever was in the local cache with server data for

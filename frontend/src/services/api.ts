@@ -15,7 +15,19 @@ export function getStoredToken(): string | null {
   return sessionStorage.getItem(TOKEN_KEY) ?? localStorage.getItem(TOKEN_KEY)
 }
 
-export function setStoredToken(token: string, remember = false): void {
+export function setStoredToken(token: string, remember?: boolean): void {
+  if (remember === undefined) {
+    if (localStorage.getItem(TOKEN_KEY)) {
+      localStorage.setItem(TOKEN_KEY, token)
+      sessionStorage.removeItem(TOKEN_KEY)
+      return
+    }
+
+    sessionStorage.setItem(TOKEN_KEY, token)
+    localStorage.removeItem(TOKEN_KEY)
+    return
+  }
+
   if (remember) {
     localStorage.setItem(TOKEN_KEY, token)
     sessionStorage.removeItem(TOKEN_KEY)
@@ -31,8 +43,14 @@ export function clearStoredToken(): void {
   localStorage.removeItem(TOKEN_KEY)
 }
 
+const configuredBaseUrl = import.meta.env.VITE_API_URL
+const apiBaseUrl =
+  configuredBaseUrl === undefined
+    ? 'http://localhost:8000'
+    : configuredBaseUrl
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: apiBaseUrl,
   timeout: 120000,
 })
 

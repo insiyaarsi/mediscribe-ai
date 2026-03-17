@@ -31,8 +31,8 @@ COPY frontend/ .
 
 # Build the production bundle.
 # Output goes to /app/dist — this is what we carry into the next stage.
-# VITE_API_URL is set to /api so the frontend calls its own origin,
-# which Nginx then proxies to the backend. This avoids hardcoding a backend URL.
+# Leave VITE_API_URL empty in Docker so axios uses same-origin requests.
+# Call sites already include `/api/...`, which Nginx proxies to the backend.
 ENV VITE_API_URL=
 RUN npm run build
 

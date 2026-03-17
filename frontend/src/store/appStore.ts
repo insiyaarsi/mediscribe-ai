@@ -13,7 +13,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { AppPage, HistoryEntry, TranscriptionResult, UploadState } from '../types'
 import { formatDate } from '../lib/utils'
-import { clearStoredToken, setStoredToken, type UserPublic } from '../services/api'
+import { clearStoredToken, type UserPublic } from '../services/api'
 
 interface UserProfile {
   firstName:  string
@@ -75,7 +75,7 @@ interface AppState {
   // Auth
   isAuthenticated: boolean
   authUser:        UserPublic | null
-  setAuth:         (user: UserPublic, token: string, remember?: boolean) => void
+  setAuth:         (user: UserPublic) => void
   clearAuth:       () => void
 
   // Upload & transcription
@@ -127,26 +127,20 @@ export const useAppStore = create<AppState>()(
       // to attempt a session restore via GET /api/auth/me (handled in App.tsx).
       isAuthenticated: false,
       authUser: null,
-      setAuth: (user, token, remember = false) => {
-        setStoredToken(token, remember)
+      setAuth: (user) => {
         set({
           isAuthenticated: true,
           authUser: user,
-          history: [],
+          history: [],          // clear previous user's history before loading new user's
           profile: {
             firstName: user.first_name,
             lastName:  user.last_name,
             email:     user.email,
             specialty: user.specialty ?? '',
-            hospital:  user.hospital ?? '',
+            hospital:  user.hospital  ?? '',
             licenseNo: user.license_no ?? '',
             avatarUrl: null,
           },
-          uploadState: 'idle',
-          selectedFile: null,
-          transcriptionResult: null,
-          processingStatus: '',
-          errorMessage: null,
         })
       },
       clearAuth: () => {
@@ -157,11 +151,6 @@ export const useAppStore = create<AppState>()(
           currentPage:     'login',
           history:         [],
           profile:         { ...DEFAULT_PROFILE },
-          uploadState:     'idle',
-          selectedFile:    null,
-          transcriptionResult: null,
-          processingStatus: '',
-          errorMessage:    null,
         })
       },
 
