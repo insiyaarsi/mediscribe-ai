@@ -13,7 +13,7 @@ A full-stack clinical documentation system that converts doctor–patient audio 
 
 ## Overview
 
-MediScribe AI takes a recorded clinical encounter and produces a documentation-grade SOAP note in under 10 seconds. The pipeline runs speech-to-text transcription locally via Whisper, extracts medical entities using a biomedical NLP model trained on clinical corpora, validates that the content is genuinely medical before committing to further processing, and then generates clinical prose via the Groq API with a rule-based fallback to guarantee output even when the API is unavailable.
+MediScribe AI takes a recorded clinical encounter and produces a documentation-grade SOAP note in under 2 minutes. The pipeline runs speech-to-text transcription locally via Whisper, extracts medical entities using a biomedical NLP model trained on clinical corpora, validates that the content is genuinely medical before committing to further processing, and then generates clinical prose via the Groq API with a rule-based fallback to guarantee output even when the API is unavailable.
 
 The frontend is a production-quality React application with full dark mode, session history, user preferences, and inline SOAP note editing.
 
