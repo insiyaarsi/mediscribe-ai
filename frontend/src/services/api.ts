@@ -51,7 +51,7 @@ const apiBaseUrl =
 
 const api = axios.create({
   baseURL: apiBaseUrl,
-  timeout: 120000,
+  timeout: 600000,
 })
 
 // ── Request interceptor — attach JWT ─────────────────────────────────────────

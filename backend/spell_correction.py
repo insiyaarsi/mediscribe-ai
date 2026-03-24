@@ -10,6 +10,16 @@ import re
 # Global vocabulary cache (loaded once on startup)
 _medical_vocabulary = None
 
+PHRASE_NORMALIZATIONS = {
+    r"\b50(?:th|-year)\s+medical student\b": "fifth year medical student",
+    r"\bwhole chest pain\b": "chest pain",
+    r"\bbreathless nurse\b": "breathlessness",
+    r"\bon a heart attack\b": "having a heart attack",
+    r"\bwhat a clue\b": "not a clue",
+    r"\bi bit was sore throat\b": "a bit of a sore throat",
+    r"\bcame to worse that now\b": "came through worse than that now",
+}
+
 def load_medical_vocabulary():
     """
     Load all medical terms from dictionaries into a single searchable vocabulary.
@@ -36,6 +46,27 @@ def load_medical_vocabulary():
     print(f"Loaded medical vocabulary: {len(vocab)} terms")
     
     return vocab
+
+
+def normalize_consultation_phrases(text: str) -> tuple[str, list[dict]]:
+    """
+    Apply a small set of high-value phrase normalisations for common ASR drift
+    in consultation audio before medical spell correction runs.
+    """
+    normalized = text
+    replacements = []
+
+    for pattern, replacement in PHRASE_NORMALIZATIONS.items():
+        updated, count = re.subn(pattern, replacement, normalized, flags=re.IGNORECASE)
+        if count:
+            normalized = updated
+            replacements.append({
+                "pattern": pattern,
+                "replacement": replacement,
+                "count": count,
+            })
+
+    return normalized, replacements
 
 
 def is_medical_word(word):
@@ -127,6 +158,14 @@ def correct_medical_spelling(text, threshold=85, verbose=True):
         print("\n" + "=" * 50)
         print("MEDICAL SPELL CORRECTION")
         print("=" * 50)
+
+    text, phrase_replacements = normalize_consultation_phrases(text)
+    if verbose and phrase_replacements:
+        for replacement in phrase_replacements:
+            print(
+                f"  ✓ phrase normalised via /{replacement['pattern']}/ "
+                f"→ '{replacement['replacement']}' x{replacement['count']}"
+            )
     
     # Load vocabulary
     vocab = load_medical_vocabulary()
@@ -183,7 +222,10 @@ def correct_medical_spelling(text, threshold=85, verbose=True):
             print("\nNo corrections needed (all terms recognized)")
         print("=" * 50)
     
-    return corrected_text, corrections_log
+    return corrected_text, {
+        "phrase_replacements": phrase_replacements,
+        "word_corrections": corrections_log,
+    }
 
 
 def test_spell_correction():

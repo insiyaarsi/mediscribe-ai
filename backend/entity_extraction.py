@@ -18,7 +18,8 @@ print("Medical model loaded successfully!")
 # ── Dictionary scan sets ──────────────────────────────────────────────────────
 # These are the term sets used by the second-pass dictionary scanner.
 # PROCEDURES is split into TEST_TERMS (lab/diagnostic) and PROCEDURE_TERMS
-# so the frontend can distinguish between them.
+# so the frontend can distinguish between them. We also scan CONDITIONS and
+# MEDICATIONS so entity counts remain stable when the NER model misses them.
 
 TEST_TERMS = {
     "blood test", "blood work", "lab work", "labs",
@@ -139,11 +140,10 @@ def dictionary_scan(text, existing_entities):
     """
     Second-pass dictionary scan over the raw transcription text.
 
-    The NER model (en_ner_bc5cdr_md) only returns CHEMICAL and DISEASE labels.
-    This means symptoms, procedures, and tests are never tagged by the model.
-    This function scans the text directly against the SYMPTOMS, TEST_TERMS, and
-    PROCEDURE_TERMS dictionaries and returns any matches as synthetic entities
-    with labels SYMPTOM, TEST, or PROCEDURE respectively.
+    The NER model (en_ner_bc5cdr_md) only returns CHEMICAL and DISEASE labels
+    with variable recall. This function scans the text directly against the
+    SYMPTOMS, CONDITIONS, MEDICATIONS, TEST_TERMS, and PROCEDURE_TERMS
+    dictionaries and returns any matches as synthetic entities.
 
     Entities that overlap with an existing NER entity are skipped to avoid
     double-counting (e.g. 'chest pain' already tagged as DISEASE is not
@@ -197,11 +197,13 @@ def dictionary_scan(text, existing_entities):
                 start = idx + 1
 
     scan_dict(SYMPTOMS,        'SYMPTOM')
+    scan_dict(CONDITIONS,      'CONDITION')
+    scan_dict(MEDICATIONS,     'MEDICATION')
     scan_dict(TEST_TERMS,      'TEST')
     scan_dict(PROCEDURE_TERMS, 'PROCEDURE')
 
     print(f"  Dictionary scan found {len(new_entities)} additional entities "
-          f"(SYMPTOM/TEST/PROCEDURE)")
+          f"(SYMPTOM/CONDITION/MEDICATION/TEST/PROCEDURE)")
 
     return new_entities
 
@@ -214,13 +216,15 @@ def extract_medical_entities(text):
         High-confidence detection of CHEMICAL (medications) and DISEASE (conditions).
 
     Pass 2 — Dictionary scan:
-        Catches SYMPTOM, TEST, and PROCEDURE terms that the NER model never labels.
-        Results are deduplicated against Pass 1 output.
+        Catches SYMPTOM, CONDITION, MEDICATION, TEST, and PROCEDURE terms the
+        NER model may miss. Results are deduplicated against Pass 1 output.
 
     The combined entity list is returned with the NER/synthetic label in the
     'label' field. The frontend getEntityCategory() maps:
-        CHEMICAL  -> MEDICATION
-        DISEASE   -> CONDITION
+        CHEMICAL   -> MEDICATION
+        DISEASE    -> CONDITION
+        MEDICATION -> MEDICATION
+        CONDITION  -> CONDITION
         SYMPTOM   -> SYMPTOM
         TEST      -> TEST
         PROCEDURE -> PROCEDURE

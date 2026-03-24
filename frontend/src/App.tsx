@@ -10,7 +10,7 @@ import LoginPage from './pages/LoginPage'
 import { fetchCurrentUser, fetchHistory, getStoredToken, mapHistoryEntryFromApi } from './services/api'
 
 export default function App() {
-  const { currentPage, sidebarCollapsed, preferences, isAuthenticated, setAuth, setHistory, clearAuth, setPage } = useAppStore()
+  const { currentPage, sidebarCollapsed, preferences, setAuth, setHistory, clearAuth, setPage } = useAppStore()
   const [isRestoringSession, setIsRestoringSession] = useState(true)
 
   // Dark mode
@@ -24,7 +24,7 @@ export default function App() {
 
   useEffect(() => {
     const token = getStoredToken()
-    if (!token || isAuthenticated) {
+    if (!token) {
       setIsRestoringSession(false)
       return
     }
@@ -59,7 +59,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [clearAuth, isAuthenticated, setAuth, setHistory, setPage])
+  }, [clearAuth, setAuth, setHistory, setPage])
 
   if (isRestoringSession) {
     return null

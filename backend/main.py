@@ -4,13 +4,14 @@ load_dotenv()
 from fastapi import FastAPI, File, UploadFile, HTTPException, Response, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 import os
 
 from transcription import transcribe_audio_realtime
 from entity_extraction import extract_medical_entities
 from soap_generator import generate_soap_note, format_soap_note_text
 from content_validator import validate_medical_content
+from spell_correction import correct_medical_spelling
 from database import get_db, engine
 from auth import hash_password, verify_password, create_access_token, get_current_user
 import models
@@ -137,6 +138,10 @@ def get_history(
     """
     return (
         db.query(models.Transcription)
+        .options(
+            selectinload(models.Transcription.entities),
+            selectinload(models.Transcription.soap_note),
+        )
         .filter(models.Transcription.user_id == current_user.id)
         .order_by(models.Transcription.created_at.desc())
         .all()
@@ -148,9 +153,15 @@ def get_transcription(
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    record = db.query(models.Transcription).filter(
-        models.Transcription.id == transcription_id
-    ).first()
+    record = (
+        db.query(models.Transcription)
+        .options(
+            selectinload(models.Transcription.entities),
+            selectinload(models.Transcription.soap_note),
+        )
+        .filter(models.Transcription.id == transcription_id)
+        .first()
+    )
     if not record:
         raise HTTPException(status_code=404, detail="Transcription not found")
     if record.user_id != current_user.id:
@@ -244,6 +255,14 @@ async def transcribe_audio_endpoint(
         print("\n--- STEP 1: TRANSCRIPTION ---")
         transcription_result = transcribe_audio_realtime(file_path)
         print(f"Transcription: {transcription_result[:200]}...")
+
+        print("\n--- STEP 1B: TRANSCRIPT NORMALISATION ---")
+        transcription_result, correction_log = correct_medical_spelling(
+            transcription_result,
+            verbose=True,
+        )
+        print(f"Transcript normalisation complete: {len(correction_log['phrase_replacements'])} phrase replacements, "
+              f"{len(correction_log['word_corrections'])} word corrections")
 
         # Step 2: Validate
         print("\n--- STEP 2: CONTENT VALIDATION ---")

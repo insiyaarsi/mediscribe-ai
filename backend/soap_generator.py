@@ -8,8 +8,11 @@ load_dotenv()
 
 import os
 import json
+import re
 from datetime import datetime
 from groq import Groq
+
+INSUFFICIENT_SECTION_TEXT = "Not enough information in the recording to complete this section."
 
 
 
@@ -38,6 +41,7 @@ def generate_soap_note(transcription: str, categorized_entities: dict) -> dict:
     """
     try:
         soap = _generate_with_groq(transcription, categorized_entities)
+        soap = _apply_clinical_consistency_rules(transcription, soap)
         soap["generated_at"] = datetime.now().isoformat()
         soap["source"] = "groq-llama-3.1-70b-versatile"
         print("SOAP note generated via Groq llama-3.3-70b-versatile")
@@ -74,23 +78,69 @@ def _build_entity_summary(categorized_entities: dict) -> str:
     return "\n".join(lines) if lines else "No specific entities extracted."
 
 
+def _extract_patient_context(transcription: str) -> dict:
+    """
+    Pull lightweight structured context from the transcript to ground the prompt.
+    """
+    context = {
+        "patient_name": None,
+        "date_of_birth": None,
+        "calculated_age_years": None,
+        "history_only_encounter": True,
+    }
+
+    name_match = re.search(
+        r"name and date of birth\?\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)",
+        transcription,
+    )
+    if name_match:
+        context["patient_name"] = name_match.group(1).strip()
+
+    dob_match = re.search(r"(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{4})", transcription)
+    if not dob_match:
+        dob_match = re.search(
+            r"(\d{1,2})(?:st|nd|rd|th)?\s+of\s+the\s+(\d{1,2})(?:st|nd|rd|th)?[,]?\s+(\d{4})",
+            transcription,
+            flags=re.IGNORECASE,
+        )
+    if dob_match:
+        day, month, year = map(int, dob_match.groups())
+        context["date_of_birth"] = f"{day:02d}/{month:02d}/{year}"
+        today = datetime.now()
+        age = today.year - year - ((today.month, today.day) < (month, day))
+        if 0 <= age <= 120:
+            context["calculated_age_years"] = age
+
+    return context
+
+
 _SYSTEM_PROMPT = """You are a clinical documentation assistant that enhances
 physician SOAP notes to documentation-grade quality. You operate as a
 documentation enhancer: you structure and complete the note based on the
 transcript, and you add standard-of-care items that are clinically implied
-by the presentation even if not explicitly spoken — stating them as direct
-actions without labelling them as protocol.
+by the presentation only when the symptom pattern strongly supports them.
+Do not default to an acute coronary syndrome pathway just because the words
+"chest pain" appear.
 
 CRITICAL OUTPUT RULES:
 - Return ONLY valid JSON with exactly four keys: subjective, objective,
   assessment, plan. No markdown fences, no preamble, no text outside the JSON.
 - Never repeat the same clinical information across sections.
 - Never fabricate patient-specific data (vitals, measurements, test results).
-- If a specific data point is absent from the transcript, state it as
+- If a SOAP section does not have enough evidence in the transcript to be
+  completed safely, respond with exactly:
+  "Not enough information in the recording to complete this section."
+  Do not infer, assume, or fabricate clinical content for that section.
+- If a specific data point is absent from the transcript but the section still
+  has enough evidence to be completed safely, state it as
   "not documented in transcript."
 - Normalise all medication names to standard formulary spelling
   (e.g. "lisinopril" not "lysinoprell", "atorvastatin" not "adervastatin").
   If a medication name is phonetically recognisable, correct it silently.
+- If a date of birth and computed age are provided in the prompt metadata,
+  use that age exactly and do not estimate a different age.
+- If patient name or DOB metadata are provided, include them in the opening
+  demographics sentence of the Subjective section.
 
 SUBJECTIVE:
 - Report only what the patient or clinician stated. Zero diagnostic
@@ -99,19 +149,45 @@ SUBJECTIVE:
   but write as a single fluent clinical paragraph — do not mechanically
   label each element. The paragraph should read as an experienced clinician
   wrote it, not as a template being filled in.
+- Begin the Subjective section with a demographics sentence including patient
+  name, DOB, and age when available in prompt metadata.
 - Cover: onset (when and how it started), triggering event if known,
   quality, radiation, severity (numeric scale if mentioned), timing
   (constant vs intermittent), provocation and palliation.
+- Distinguish carefully between onset and progression. If the pain started
+  suddenly but worsened gradually thereafter, say exactly that; do not collapse
+  it into "gradual onset."
 - For each OPQRST element genuinely absent from the transcript, incorporate
   a natural "not documented" statement within the prose rather than a
   labelled line. Example: "Aggravating and relieving factors were not
   documented." Do not say "onset not further documented" if onset was
   already stated — instead flag the triggering event specifically if unknown.
-- Include associated symptoms, and relevant past medical history, surgical
-  history, medications, and allergies if mentioned.
+- Include associated symptoms, relevant past medical history, surgical
+  history, medications, allergies, family history, and recent illness if
+  mentioned.
+- Explicitly capture Ideas, Concerns, and Expectations when the patient states
+  them. These may be woven naturally into the paragraph, but all three must be
+  present if available. If the patient explicitly has no idea what is causing
+  the symptoms, state that clearly as the Ideas component.
+- If the transcript establishes that an aggravating or relieving factor was
+  asked about and the answer was effectively "no difference", document that
+  finding rather than saying it was not documented.
+- If standard history components such as PMHx, medications, allergies, social
+  history, or family history were not asked about in the recording, explicitly
+  state that they were "not elicited in this recording" rather than omitting
+  them.
+- Add a brief "history gaps identified" sentence when a key diagnostic question
+  was not asked in the recording. For suspected pericarditis, explicitly note
+  if forward-leaning relief was not explored.
+- Do not create internal contradictions. Example: if the pain is worse when
+  lying down but not worsened by walking/sitting, document positional worsening
+  with no clear exertional trigger; do not say position has no effect.
 
 OBJECTIVE:
 - Report only measurable, observable findings. Zero diagnostic interpretation.
+- If the audio is history-taking only and contains no examination or test
+  results, state clearly that this recording captures history-taking only and
+  objective findings are pending clinical examination/investigation.
 - List all vital signs mentioned. For each standard vital sign not in the
   transcript (heart rate, blood pressure, respiratory rate, oxygen
   saturation, temperature), state it as "not documented in transcript."
@@ -129,6 +205,17 @@ ASSESSMENT:
   then one sentence of reasoning drawn strictly from the S and O data.
   Use precision language scaled to the strength of evidence:
   "highly concerning for", "likely", "consistent with", "suspicious for."
+- Match the diagnosis to the symptom pattern. For chest pain:
+  pressure-like exertional radiating pain with diaphoresis supports ACS;
+  sharp pleuritic positional pain after a recent viral illness in a young
+  patient supports pericarditis. Family history alone must not override the
+  actual pain pattern.
+- If pericarditis is leading and troponin later proves elevated, state that
+  myopericarditis should then be considered and cardiology input may be needed.
+- When ranking a differential diagnosis lower, briefly state why. For example,
+  if ACS is lower on the list, note the absence of classic pressure-like,
+  exertional, radiating, or diaphoresis-associated features when supported by
+  the transcript.
 - Observe strict diagnostic taxonomy: never list a subtype parallel to its
   parent category. For ACS, the working diagnosis should specify the likely
   subtype (STEMI vs NSTEMI vs unstable angina) with the others as
@@ -144,8 +231,26 @@ PLAN:
 - Address each numbered Assessment problem in order.
 - State all actions directly and confidently. Do not label any action as
   "per standard protocol" — simply document the action as a clinician would.
-- For acute or high-risk presentations, include standard-of-care items
-  clinically implied by the scenario even if not spoken in the transcript:
+- The plan must remain aligned to the leading assessment. Do not generate an
+  ACS-only treatment bundle if the assessment favors pericarditis or another
+  non-ACS cause.
+- For suspected pericarditis, prefer ECG, troponin, CRP/ESR, FBC, and
+  echocardiography, with first-line NSAID and colchicine treatment unless the
+  transcript gives a reason not to. If pericarditis is the leading diagnosis,
+  do not hedge vaguely with "if clinically appropriate."
+- If medication dosing is not explicitly supported by the transcript or prompt
+  metadata, say that dosing and duration are to be confirmed by the treating
+  clinician rather than implying the prescription is complete.
+- For pericarditis plans, explicitly mention gastroprotection if an NSAID is
+  being used, for example PPI cover where appropriate.
+- Include safety-netting for acute chest pain presentations, especially return
+  precautions for worsening breathlessness, syncope, spreading pain, or general
+  deterioration.
+- Include rest and avoidance of strenuous exercise when the leading diagnosis
+  is pericarditis or myopericarditis is being considered.
+- Include a follow-up timeframe when clinically appropriate.
+- For acute or high-risk presentations where ACS is genuinely the leading
+  concern, include standard-of-care items clinically implied by the scenario:
   cardiac monitoring, IV access, serial ECGs, troponin and cardiac
   biomarkers, NPO status, supplemental oxygen if hypoxic, anticoagulation
   if indicated.
@@ -173,9 +278,11 @@ def _generate_with_groq(transcription: str, categorized_entities: dict) -> dict:
 
     client = Groq(api_key=api_key)
     entity_summary = _build_entity_summary(categorized_entities)
+    patient_context = _extract_patient_context(transcription)
 
     user_message = (
         f"Transcript:\n{transcription}\n\n"
+        f"Prompt metadata:\n{json.dumps(patient_context, indent=2)}\n\n"
         f"Extracted medical entities:\n{entity_summary}\n\n"
         "Generate the SOAP note as JSON."
     )
@@ -195,7 +302,7 @@ def _generate_with_groq(transcription: str, categorized_entities: dict) -> dict:
     # Strip markdown code fences that the model sometimes adds despite instructions.
     raw = raw.replace("```json", "").replace("```", "").strip()
 
-    soap = json.loads(raw)
+    soap = _normalize_soap_sections(json.loads(raw))
 
     # Validate the four required keys are present.
     required_keys = {"subjective", "objective", "assessment", "plan"}
@@ -231,6 +338,94 @@ def _generate_fallback(transcription: str, categorized_entities: dict) -> dict:
     }
 
 
+def _normalize_soap_sections(soap: dict) -> dict:
+    """
+    Ensure all SOAP sections are present and never empty strings.
+    This keeps the frontend output deterministic for sparse recordings.
+    """
+    for section in ("subjective", "objective", "assessment", "plan"):
+        value = soap.get(section)
+        if isinstance(value, str):
+            soap[section] = value.strip() or INSUFFICIENT_SECTION_TEXT
+        elif value is None:
+            soap[section] = INSUFFICIENT_SECTION_TEXT
+    return soap
+
+
+def _append_sentence(section_text: str, sentence: str) -> str:
+    section_text = section_text.strip()
+    sentence = sentence.strip()
+    if not section_text:
+        return sentence
+    if sentence in section_text:
+        return section_text
+    if not section_text.endswith((".", "!", "?")):
+        section_text += "."
+    return f"{section_text} {sentence}"
+
+
+def _apply_clinical_consistency_rules(transcription: str, soap: dict) -> dict:
+    """
+    Add a small diagnosis-aware rules layer so high-value clinical details are
+    carried across sections consistently even when the model drifts.
+    """
+    subjective = str(soap.get("subjective", ""))
+    objective = str(soap.get("objective", ""))
+    assessment = str(soap.get("assessment", ""))
+    plan = str(soap.get("plan", ""))
+    text_lower = transcription.lower()
+
+    pericarditis_leading = "pericarditis" in assessment.lower()
+    viral_urti_present = any(phrase in text_lower for phrase in [
+        "sniffles", "sore throat", "viral", "upper respiratory", "urti",
+    ])
+    forward_leaning_asked = any(phrase in text_lower for phrase in [
+        "lean forward", "leaning forward", "sit forward",
+    ])
+
+    if pericarditis_leading and viral_urti_present and "viral" not in assessment.lower() and "urti" not in assessment.lower():
+        assessment = _append_sentence(
+            assessment,
+            "This is further supported by the recent viral upper respiratory tract illness described in the history.",
+        )
+
+    if pericarditis_leading and "myopericarditis" not in assessment.lower():
+        assessment = _append_sentence(
+            assessment,
+            "If troponin returns elevated, myopericarditis should be considered and urgent cardiology review sought.",
+        )
+
+    if pericarditis_leading and not forward_leaning_asked and "forward-leaning relief" not in subjective.lower():
+        subjective = _append_sentence(
+            subjective,
+            "History gaps identified include that relief on leaning forward was not explored in this recording.",
+        )
+
+    if "ecg" in plan.lower() and "requested" not in objective.lower():
+        objective = _append_sentence(
+            objective,
+            "Investigations requested and pending include ECG, troponin, CRP/ESR, FBC, and echocardiography.",
+        )
+
+    if pericarditis_leading and "dosing" not in plan.lower() and "dose" not in plan.lower():
+        plan = _append_sentence(
+            plan,
+            "Medication dosing and duration are to be confirmed by the prescribing clinician.",
+        )
+
+    if pericarditis_leading and "1–2 weeks" not in plan and "1-2 weeks" not in plan and "one to two weeks" not in plan.lower():
+        plan = _append_sentence(
+            plan,
+            "Follow-up should be arranged in 1–2 weeks for clinical review and repeat inflammatory markers.",
+        )
+
+    soap["subjective"] = subjective
+    soap["objective"] = objective
+    soap["assessment"] = assessment
+    soap["plan"] = plan
+    return soap
+
+
 def _fallback_subjective(transcription: str, symptoms: list) -> dict:
     symptom_list = [s["text"] for s in symptoms]
     chief_complaint = (
@@ -248,6 +443,8 @@ def _fallback_subjective(transcription: str, symptoms: list) -> dict:
 
 def _fallback_objective(procedures: list) -> dict:
     procedure_list = [p["text"] for p in procedures]
+    if not procedure_list:
+        return {"note": INSUFFICIENT_SECTION_TEXT}
     findings = []
     for proc in procedure_list:
         if proc in ("vitals", "vital signs"):
@@ -265,6 +462,8 @@ def _fallback_objective(procedures: list) -> dict:
 
 def _fallback_assessment(conditions: list) -> dict:
     condition_list = [c["text"] for c in conditions]
+    if not condition_list:
+        return {"note": INSUFFICIENT_SECTION_TEXT}
     if condition_list:
         primary_diagnosis = condition_list[0]
         additional_diagnoses = condition_list[1:]
@@ -288,7 +487,7 @@ def _fallback_plan(medications: list, procedures: list) -> dict:
     if procedure_list:
         plan_items.append(f"Procedures: {', '.join(procedure_list)}")
     if not plan_items:
-        plan_items.append("Continue monitoring and supportive care")
+        return {"note": INSUFFICIENT_SECTION_TEXT}
     return {
         "treatment_plan": plan_items,
         "medications": medication_list,
