@@ -364,6 +364,12 @@ def _append_sentence(section_text: str, sentence: str) -> str:
     return f"{section_text} {sentence}"
 
 
+def _remove_sentence(section_text: str, sentence_pattern: str) -> str:
+    updated = re.sub(sentence_pattern, "", section_text, flags=re.IGNORECASE)
+    updated = re.sub(r"\s{2,}", " ", updated)
+    return updated.strip()
+
+
 def _apply_clinical_consistency_rules(transcription: str, soap: dict) -> dict:
     """
     Add a small diagnosis-aware rules layer so high-value clinical details are
@@ -396,6 +402,14 @@ def _apply_clinical_consistency_rules(transcription: str, soap: dict) -> dict:
         )
 
     if pericarditis_leading and not forward_leaning_asked and "forward-leaning relief" not in subjective.lower():
+        subjective = _remove_sentence(
+            subjective,
+            r"History gaps identified:\s*the patient's recent illness could be relevant to his current symptoms,\s*and further questioning about his family history of heart disease may be necessary\.\s*",
+        )
+        subjective = _remove_sentence(
+            subjective,
+            r"History gaps identified include that relief on leaning forward was not explored in this recording\.\s*",
+        )
         subjective = _append_sentence(
             subjective,
             "History gaps identified include that relief on leaning forward was not explored in this recording.",
@@ -417,6 +431,20 @@ def _apply_clinical_consistency_rules(transcription: str, soap: dict) -> dict:
         plan = _append_sentence(
             plan,
             "Follow-up should be arranged in 1–2 weeks for clinical review and repeat inflammatory markers.",
+        )
+
+    if pericarditis_leading:
+        plan = re.sub(
+            r"If pericarditis is confirmed,\s*treatment with",
+            "Treatment for suspected pericarditis should be initiated with",
+            plan,
+            flags=re.IGNORECASE,
+        )
+        plan = re.sub(
+            r"should be considered",
+            "should be initiated",
+            plan,
+            flags=re.IGNORECASE,
         )
 
     soap["subjective"] = subjective

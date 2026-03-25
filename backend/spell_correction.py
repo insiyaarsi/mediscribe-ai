@@ -11,6 +11,7 @@ import re
 _medical_vocabulary = None
 
 PHRASE_NORMALIZATIONS = {
+    r"\bHarry Miles\b": "Harry Myles",
     r"\b50(?:th|-year)\s+medical student\b": "fifth year medical student",
     r"\bwhole chest pain\b": "chest pain",
     r"\bbreathless nurse\b": "breathlessness",
