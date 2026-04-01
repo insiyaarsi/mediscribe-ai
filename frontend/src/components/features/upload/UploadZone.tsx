@@ -14,6 +14,7 @@ export default function UploadZone() {
   const [isDragOver, setIsDragOver] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [audioUrl, setAudioUrl] = useState<string | null>(null)
+  const revokeTimerRef = useRef<number | null>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
 
@@ -61,19 +62,44 @@ export default function UploadZone() {
   }
 
   useEffect(() => {
+    const audio = audioRef.current
+
+    if (revokeTimerRef.current !== null) {
+      window.clearTimeout(revokeTimerRef.current)
+      revokeTimerRef.current = null
+    }
+
     if (!selectedFile) {
+      if (audio) {
+        audio.pause()
+        audio.removeAttribute('src')
+        audio.load()
+      }
       setAudioUrl(null)
       setIsPlaying(false)
       setCurrentTime(0)
       setDuration(0)
       return
     }
+
     const url = URL.createObjectURL(selectedFile)
     setAudioUrl(url)
     setIsPlaying(false)
     setCurrentTime(0)
     setDuration(0)
-    return () => { URL.revokeObjectURL(url) }
+
+    return () => {
+      const currentAudio = audioRef.current
+      if (currentAudio && currentAudio.src === url) {
+        currentAudio.pause()
+        currentAudio.removeAttribute('src')
+        currentAudio.load()
+      }
+      revokeTimerRef.current = window.setTimeout(() => {
+        URL.revokeObjectURL(url)
+        revokeTimerRef.current = null
+      }, 0)
+    }
   }, [selectedFile])
 
   useEffect(() => {
@@ -95,6 +121,12 @@ export default function UploadZone() {
       audio.removeEventListener('ended', onEnded)
     }
   }, [audioUrl])
+
+  useEffect(() => () => {
+    if (revokeTimerRef.current !== null) {
+      window.clearTimeout(revokeTimerRef.current)
+    }
+  }, [])
 
   const handlePlayPause = async () => {
     const audio = audioRef.current

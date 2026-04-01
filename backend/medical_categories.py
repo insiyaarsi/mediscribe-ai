@@ -39,7 +39,7 @@ SYMPTOMS = {
     "swelling", "edema", "pitting edema", "leg swelling",
     
     # General symptoms
-    "fatigue", "tiredness", "weakness", "malaise",
+    "fatigue", "tiredness", "weakness", "malaise", "washed out",
     "fever", "chills", "sweating", "night sweats", "diaphoretic",
     "insomnia", "difficulty sleeping", "sleep disturbance",
     "anxiety", "stress", "depression", "sadness",
@@ -185,6 +185,7 @@ CONDITIONS = {
     "influenza", "flu", "COVID-19", "coronavirus",
     "sepsis", "septic shock", "bacteremia",
     "urinary tract infection", "UTI", "pyelonephritis",
+    "urine infection", "urine infections", "water infection", "water infections",
     "cellulitis", "abscess",
     
     # Musculoskeletal
@@ -229,7 +230,7 @@ CONDITIONS = {
     "benign prostatic hyperplasia", "BPH",
     
     # Dermatological
-    "eczema", "psoriasis", "dermatitis", "acne",
+    "eczema", "psoriasis", "dermatitis", "acne", "thrush",
     "rosacea", "skin cancer", "melanoma",
     "cellulitis", "fungal infection",
     
@@ -448,33 +449,36 @@ def categorize_entity(entity_text):
     if text_lower in CLINICAL_TERMS:
         return "clinical_term"
     
-    # Check partial match (for multi-word terms)
+    # Check bounded partial matches when the extracted entity contains the
+    # dictionary term as a full word/phrase. This keeps recall for longer
+    # entities while avoiding ultra-short false positives like "Hi" -> "hip"
+    # or "glucose" -> "blood glucose".
     for term in SYMPTOMS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "symptom"
     
     for term in MEDICATIONS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "medication"
     
     for term in CONDITIONS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "condition"
     
     for term in PROCEDURES:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "procedure"
     
     for term in ANATOMICAL_TERMS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "anatomical"
     
     for term in CLINICAL_MODIFIERS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "modifier"
     
     for term in CLINICAL_TERMS:
-        if term in text_lower or text_lower in term:
+        if f" {term} " in f" {text_lower} ":
             return "clinical_term"
     
     return "unknown"
