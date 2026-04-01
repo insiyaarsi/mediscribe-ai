@@ -208,6 +208,28 @@ def dictionary_scan(text, existing_entities):
     return new_entities
 
 
+def filter_contextual_false_positives(entities, original_text):
+    """
+    Remove a few high-frequency false positives that arise from conversational
+    transcripts rather than true clinical entities.
+    """
+    filtered = []
+    for ent in entities:
+        ent_text = ent["text"].strip().lower()
+        context_start = max(0, ent["start"] - 10)
+        context = original_text[context_start:ent["end"]].lower()
+
+        if ent_text in {"hi", "hello"}:
+            continue
+
+        if ent_text == "surgery" and "gp surgery" in context:
+            continue
+
+        filtered.append(ent)
+
+    return filtered
+
+
 def extract_medical_entities(text):
     """
     Extract and categorize medical entities from text using scispacy + dictionary scan.
@@ -263,6 +285,7 @@ def extract_medical_entities(text):
         print("\nPass 2 (dictionary scan):")
         additional = dictionary_scan(text, entities)
         entities = entities + additional
+        entities = filter_contextual_false_positives(entities, text)
 
         print(f"Total after both passes: {len(entities)} entities")
 

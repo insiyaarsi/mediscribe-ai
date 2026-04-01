@@ -18,7 +18,9 @@ WHISPER_BEAM_SIZE = int(os.getenv("WHISPER_BEAM_SIZE", "3"))
 INITIAL_PROMPT = (
     "English clinical consultation between a medical student and a patient. "
     "Common terms include chest pain, breathlessness, palpitations, sore throat, "
-    "heart attack, pericarditis, ECG, troponin, and date of birth."
+    "heart attack, pericarditis, ECG, troponin, date of birth, diabetes, "
+    "blood test, glucose, insulin, HbA1c, metformin, thrush, urinary tract "
+    "infection, lifestyle, retinal screening, foot check, and GP surgery."
 )
 
 if os.cpu_count():

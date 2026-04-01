@@ -244,6 +244,15 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
     subjective: '', objective: '', assessment: '', plan: '',
   }) as TranscriptionResult['soap_note']
 
+  const clinicalRepresentation = data.clinical_representation as TranscriptionResult['clinical_representation'] | undefined
+  const qualityReport = data.quality_report as TranscriptionResult['quality_report'] | undefined
+  const qualityScore =
+    typeof data.quality_score === 'number'
+      ? data.quality_score
+      : typeof qualityReport?.overall_score === 'number'
+        ? qualityReport.overall_score
+        : undefined
+
   const confidenceScore =
     typeof data.confidence_score === 'number'
       ? data.confidence_score
@@ -256,15 +265,25 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
     transcription:    typeof data.transcription === 'string' ? data.transcription : '',
     entities:         entities as TranscriptionResult['entities'],
     soap_note:        soapNote,
+    clinical_representation: clinicalRepresentation,
+    quality_report: qualityReport,
+    quality_score: qualityScore,
     confidence_score: confidenceScore,
   } as TranscriptionResult
 }
 
-export async function transcribeAudio(file: File): Promise<TranscriptionResult> {
+export async function transcribeAudio(file: File, audioDurationSeconds?: number | null): Promise<TranscriptionResult> {
   const formData = new FormData()
   formData.append('file', file)
   const response = await api.post<TranscriptionResult>('/api/transcribe', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      'X-Client-Date': new Date().toISOString().slice(0, 10),
+      ...(typeof audioDurationSeconds === 'number' && Number.isFinite(audioDurationSeconds)
+        ? { 'X-Audio-Duration-Seconds': String(audioDurationSeconds) }
+        : {}),
+    },
+    timeout: 30 * 60 * 1000,
   })
   return normalizeTranscriptionResult(response.data)
 }

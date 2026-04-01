@@ -13,6 +13,9 @@ const PROCESSING_STAGES = [
   { progressAt: 0.96, pct: 97, msg: 'Finalising output...'                         },
 ]
 
+const MIN_AUDIO_DURATION_SECONDS = 45
+const SHORT_AUDIO_MESSAGE = 'Recording is too short to process. Please upload a longer clinical audio clip.'
+
 function formatDuration(totalSeconds: number): string {
   const safe = Math.max(0, Math.round(totalSeconds))
   const mins = Math.floor(safe / 60)
@@ -24,19 +27,30 @@ async function getAudioDurationSeconds(file: File): Promise<number | null> {
   return await new Promise((resolve) => {
     const audio = document.createElement('audio')
     const url = URL.createObjectURL(file)
+    let settled = false
 
     audio.preload = 'metadata'
     audio.src = url
 
-    audio.onloadedmetadata = () => {
-      const duration = Number.isFinite(audio.duration) ? audio.duration : null
-      URL.revokeObjectURL(url)
+    const cleanup = (duration: number | null) => {
+      if (settled) return
+      settled = true
+      audio.onloadedmetadata = null
+      audio.onerror = null
+      audio.pause()
+      audio.removeAttribute('src')
+      audio.load()
+      window.setTimeout(() => URL.revokeObjectURL(url), 0)
       resolve(duration)
     }
 
+    audio.onloadedmetadata = () => {
+      const duration = Number.isFinite(audio.duration) ? audio.duration : null
+      cleanup(duration)
+    }
+
     audio.onerror = () => {
-      URL.revokeObjectURL(url)
-      resolve(null)
+      cleanup(null)
     }
   })
 }
@@ -134,6 +148,13 @@ export default function TranscribeButton() {
     if (!selectedFile) return
 
     const audioDurationSeconds = await getAudioDurationSeconds(selectedFile)
+    if (audioDurationSeconds !== null && audioDurationSeconds < MIN_AUDIO_DURATION_SECONDS) {
+      setError(SHORT_AUDIO_MESSAGE)
+      toast.error('Audio too short', {
+        description: SHORT_AUDIO_MESSAGE,
+      })
+      return
+    }
     const estimatedTotalSeconds = estimateProcessingSeconds(selectedFile, audioDurationSeconds)
 
     setUploadState('processing')
@@ -142,7 +163,7 @@ export default function TranscribeButton() {
     startFakeProgress(estimatedTotalSeconds)
 
     try {
-      const result = await transcribeAudio(selectedFile)
+      const result = await transcribeAudio(selectedFile, audioDurationSeconds)
       finishProgress()
 
       // Short pause so the bar hits 100% visually before disappearing

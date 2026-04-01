@@ -1,14 +1,16 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, File, UploadFile, HTTPException, Response, Depends, status
+from fastapi import FastAPI, File, Header, UploadFile, HTTPException, Request, Response, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 import os
+import time
 
 from transcription import transcribe_audio_realtime
 from entity_extraction import extract_medical_entities
+from clinical_extraction import extract_clinical_representation
 from soap_generator import generate_soap_note, format_soap_note_text
 from content_validator import validate_medical_content
 from spell_correction import correct_medical_spelling
@@ -17,6 +19,7 @@ from auth import hash_password, verify_password, create_access_token, get_curren
 import models
 import schemas
 from lib.utils import generate_patient_id, estimate_duration
+from runtime_context import set_reference_date, reset_reference_date
 
 # Create all tables on startup if they do not exist.
 # In production, Alembic handles migrations. This line is a safe fallback that
@@ -222,7 +225,9 @@ def delete_my_account(
 
 @app.post("/api/transcribe")
 async def transcribe_audio_endpoint(
+    request: Request,
     file: UploadFile = File(...),
+    audio_duration_seconds: float | None = Header(default=None, alias="X-Audio-Duration-Seconds"),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -245,11 +250,35 @@ async def transcribe_audio_endpoint(
         )
 
     file_path = os.path.join(UPLOAD_DIR, file.filename)
+    request_started_at = time.perf_counter()
+    reference_token = set_reference_date(request.headers.get("X-Client-Date"))
+    minimum_audio_duration_seconds = 45
 
     try:
         with open(file_path, "wb") as buffer:
             content = await file.read()
             buffer.write(content)
+
+        if audio_duration_seconds is not None and audio_duration_seconds < minimum_audio_duration_seconds:
+            processing_time = round(time.perf_counter() - request_started_at, 3)
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return {
+                "success": False,
+                "filename": file.filename,
+                "transcription": "",
+                "validation": {
+                    "is_valid": False,
+                    "confidence_score": 0.0,
+                    "reason": "Recording is too short to process. Please upload a longer clinical audio clip.",
+                    "details": {
+                        "audio_duration_seconds": round(audio_duration_seconds, 3),
+                        "minimum_audio_duration_seconds": minimum_audio_duration_seconds,
+                    },
+                },
+                "processing_time": processing_time,
+                "message": "Recording is too short to process. Please upload a longer clinical audio clip.",
+            }
 
         # Step 1: Transcribe
         print("\n--- STEP 1: TRANSCRIPTION ---")
@@ -270,6 +299,8 @@ async def transcribe_audio_endpoint(
         print(f"Validation: {validation_result['is_valid']} | Confidence: {validation_result['confidence_score']}")
 
         if not validation_result['is_valid']:
+            processing_time = round(time.perf_counter() - request_started_at, 3)
+            print(f"Processing time before validation failure: {processing_time}s")
             print("VALIDATION FAILED — skipping entity extraction and SOAP generation")
             if os.path.exists(file_path):
                 os.remove(file_path)
@@ -278,7 +309,8 @@ async def transcribe_audio_endpoint(
                 "filename": file.filename,
                 "transcription": transcription_result,
                 "validation": validation_result,
-                "message": "Non-medical content detected. Please upload clinical audio only."
+                "processing_time": processing_time,
+                "message": validation_result["reason"],
             }
 
         # Step 3: Extract entities
@@ -286,14 +318,26 @@ async def transcribe_audio_endpoint(
         entities_result = extract_medical_entities(transcription_result)
         print(f"Found {entities_result['total_entities']} entities")
 
-        # Step 4: Generate SOAP note
-        print("\n--- STEP 4: SOAP NOTE GENERATION ---")
-        soap_note = generate_soap_note(transcription_result, entities_result['categorized'])
+        # Step 4: Build structured clinical representation
+        print("\n--- STEP 4: STRUCTURED CLINICAL EXTRACTION ---")
+        clinical_representation = extract_clinical_representation(
+            transcription_result,
+            entities_result["categorized"],
+        )
+        print(f"Encounter type: {clinical_representation.get('encounter', {}).get('type')}")
+
+        # Step 5: Generate SOAP note
+        print("\n--- STEP 5: SOAP NOTE GENERATION ---")
+        soap_note = generate_soap_note(
+            transcription_result,
+            entities_result['categorized'],
+            clinical_representation,
+        )
         soap_text = format_soap_note_text(soap_note)
         print("SOAP note generated")
 
-        # Step 5: Persist to database
-        print("\n--- STEP 5: PERSISTING TO DATABASE ---")
+        # Step 6: Persist to database
+        print("\n--- STEP 6: PERSISTING TO DATABASE ---")
         confidence_0_to_100 = float(validation_result['confidence_score']) * 100
 
         db_transcription = models.Transcription(
@@ -337,6 +381,8 @@ async def transcribe_audio_endpoint(
 
         db.commit()
         db.refresh(db_transcription)
+        processing_time = round(time.perf_counter() - request_started_at, 3)
+        print(f"Total processing time: {processing_time}s")
         print(f"Persisted transcription id={db_transcription.id}")
         print("=" * 60 + "\n")
 
@@ -356,6 +402,10 @@ async def transcribe_audio_endpoint(
             },
             "soap_note":      soap_note,
             "soap_note_text": soap_text,
+            "clinical_representation": clinical_representation,
+            "quality_report": soap_note.get("quality_report"),
+            "quality_score": soap_note.get("quality_score"),
+            "processing_time": processing_time,
             "db_id":          db_transcription.id,
         }
 
@@ -364,6 +414,8 @@ async def transcribe_audio_endpoint(
             os.remove(file_path)
         print(f"\nERROR in transcribe endpoint: {str(e)}\n")
         raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        reset_reference_date(reference_token)
 
 
 # ── Download ──────────────────────────────────────────────────────────────────
