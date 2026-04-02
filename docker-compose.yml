@@ -40,6 +40,10 @@ services:
     ports:
       - "8000:8000"
 
+    depends_on:
+      db:
+        condition: service_healthy
+
     # Named volume for the Whisper model cache.
     # Why: The Whisper base model (140MB) is pre-downloaded during the Docker
     # build and lives at /root/.cache/whisper inside the container. Without a
@@ -83,7 +87,7 @@ services:
     # Without this, Nginx starts immediately and the /api/ proxy may get
     # connection refused errors on the very first requests after startup.
     depends_on:
-      db:
+      backend:
         condition: service_healthy
 
     restart: unless-stopped

@@ -4,7 +4,6 @@ python-multipart==0.0.6
 websockets==12.0
 python-dotenv==1.0.0
 openai>=1.0.0
-openai-whisper
 faster-whisper
 scispacy
 spacy

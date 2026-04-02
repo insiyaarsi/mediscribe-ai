@@ -19,7 +19,6 @@ from auth import hash_password, verify_password, create_access_token, get_curren
 import models
 import schemas
 from lib.utils import generate_patient_id, estimate_duration
-from runtime_context import set_reference_date, reset_reference_date
 
 # Create all tables on startup if they do not exist.
 # In production, Alembic handles migrations. This line is a safe fallback that
@@ -251,7 +250,6 @@ async def transcribe_audio_endpoint(
 
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     request_started_at = time.perf_counter()
-    reference_token = set_reference_date(request.headers.get("X-Client-Date"))
     minimum_audio_duration_seconds = 45
 
     try:
@@ -414,8 +412,6 @@ async def transcribe_audio_endpoint(
             os.remove(file_path)
         print(f"\nERROR in transcribe endpoint: {str(e)}\n")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        reset_reference_date(reference_token)
 
 
 # ── Download ──────────────────────────────────────────────────────────────────

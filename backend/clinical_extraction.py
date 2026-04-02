@@ -16,8 +16,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from runtime_context import get_reference_datetime
-
 try:
     from groq import Groq
 except ImportError:  # pragma: no cover
@@ -290,7 +288,7 @@ def _extract_patient_details(transcription: str) -> dict:
 
     if details["date_of_birth"] is None and month is not None:
         details["date_of_birth"] = f"{day:02d}/{month:02d}/{year}"
-        today = get_reference_datetime()
+        today = datetime.utcnow()
         age = today.year - year - ((today.month, today.day) < (month, day))
         if 0 <= age <= 120:
             details["age_years"] = age

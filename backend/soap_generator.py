@@ -11,7 +11,6 @@ import json
 import re
 from datetime import datetime
 from groq import Groq
-from runtime_context import get_reference_datetime
 
 INSUFFICIENT_SECTION_TEXT = "Not enough information in the recording to complete this section."
 
@@ -113,7 +112,7 @@ def _extract_patient_context(transcription: str) -> dict:
         "clinician_role": None,
         "history_only_encounter": True,
         "encounter_type": _infer_encounter_type(transcription),
-        "current_date_utc": get_reference_datetime().strftime("%Y-%m-%d"),
+        "current_date_utc": datetime.utcnow().strftime("%Y-%m-%d"),
     }
 
     name_match = re.search(
@@ -142,7 +141,7 @@ def _extract_patient_context(transcription: str) -> dict:
 
     if month is not None:
         context["date_of_birth"] = f"{day:02d}/{month:02d}/{year}"
-        today = get_reference_datetime()
+        today = datetime.utcnow()
         age = today.year - year - ((today.month, today.day) < (month, day))
         if 0 <= age <= 120:
             context["calculated_age_years"] = age

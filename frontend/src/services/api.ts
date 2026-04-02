@@ -278,7 +278,6 @@ export async function transcribeAudio(file: File, audioDurationSeconds?: number 
   const response = await api.post<TranscriptionResult>('/api/transcribe', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
-      'X-Client-Date': new Date().toISOString().slice(0, 10),
       ...(typeof audioDurationSeconds === 'number' && Number.isFinite(audioDurationSeconds)
         ? { 'X-Audio-Duration-Seconds': String(audioDurationSeconds) }
         : {}),

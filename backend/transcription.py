@@ -1,14 +1,20 @@
 import os
 from pathlib import Path
 
-import torch
-
 try:
     from faster_whisper import WhisperModel  # type: ignore
 except ImportError:  # pragma: no cover - optional fast path
     WhisperModel = None
 
-import whisper
+try:  # pragma: no cover - optional dependency for fallback path only
+    import torch  # type: ignore
+except ImportError:  # pragma: no cover
+    torch = None
+
+try:  # pragma: no cover - optional fallback
+    import whisper  # type: ignore
+except ImportError:  # pragma: no cover
+    whisper = None
 
 WHISPER_BACKEND = os.getenv("WHISPER_BACKEND", "faster-whisper")
 WHISPER_MODEL = os.getenv("WHISPER_MODEL", "base.en")
@@ -23,7 +29,7 @@ INITIAL_PROMPT = (
     "infection, lifestyle, retinal screening, foot check, and GP surgery."
 )
 
-if os.cpu_count():
+if torch is not None and os.cpu_count():
     torch.set_num_threads(max(1, os.cpu_count()))
 
 print("Loading transcription model...")
@@ -41,6 +47,11 @@ if WHISPER_BACKEND == "faster-whisper" and WhisperModel is not None:
     )
     _backend_name = "faster-whisper"
 else:
+    if whisper is None:
+        raise RuntimeError(
+            "WHISPER_BACKEND is set to openai-whisper, but the optional "
+            "'openai-whisper' package is not installed."
+        )
     _ow_model = whisper.load_model(WHISPER_MODEL)
 
 print(f"Transcription model loaded successfully! backend={_backend_name}, model={WHISPER_MODEL}")
