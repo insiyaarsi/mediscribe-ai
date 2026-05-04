@@ -7,7 +7,7 @@
 // the interceptor handles it transparently.
 
 import axios from 'axios'
-import type { HistoryEntry, TranscriptionResult } from '../types'
+import type { EncounterType, HistoryEntry, NoteStyleProfile, TranscriptionResult } from '../types'
 
 const TOKEN_KEY = 'mediscribe_token'
 
@@ -100,6 +100,17 @@ export interface UserPublic {
   specialty:  string | null
   hospital:   string | null
   license_no: string | null
+  note_style_preset: 'balanced' | 'concise' | 'detailed'
+  preferred_focus: 'general' | 'symptom_driven' | 'assessment_driven' | 'plan_driven'
+  include_bullets_in_plan: boolean
+  include_patient_friendly_language: boolean
+}
+
+const DEFAULT_NOTE_STYLE_PROFILE: NoteStyleProfile = {
+  note_style_preset: 'balanced',
+  preferred_focus: 'general',
+  include_bullets_in_plan: false,
+  include_patient_friendly_language: false,
 }
 
 export interface AuthResponse {
@@ -126,6 +137,21 @@ export async function registerUser(payload: {
 
 export async function fetchCurrentUser(): Promise<UserPublic> {
   const response = await api.get<UserPublic>('/api/auth/me')
+  return response.data
+}
+
+export async function updateCurrentUser(payload: {
+  first_name?: string
+  last_name?: string
+  specialty?: string
+  hospital?: string
+  license_no?: string
+  note_style_preset?: NoteStyleProfile['note_style_preset']
+  preferred_focus?: NoteStyleProfile['preferred_focus']
+  include_bullets_in_plan?: boolean
+  include_patient_friendly_language?: boolean
+}): Promise<UserPublic> {
+  const response = await api.put<UserPublic>('/api/auth/me', payload)
   return response.data
 }
 
@@ -204,6 +230,15 @@ export function mapHistoryDetailToResult(entry: HistoryEntryAPI): TranscriptionR
   }
 }
 
+export function getUserStyleProfile(user: UserPublic): NoteStyleProfile {
+  return {
+    note_style_preset: user.note_style_preset ?? DEFAULT_NOTE_STYLE_PROFILE.note_style_preset,
+    preferred_focus: user.preferred_focus ?? DEFAULT_NOTE_STYLE_PROFILE.preferred_focus,
+    include_bullets_in_plan: user.include_bullets_in_plan ?? DEFAULT_NOTE_STYLE_PROFILE.include_bullets_in_plan,
+    include_patient_friendly_language: user.include_patient_friendly_language ?? DEFAULT_NOTE_STYLE_PROFILE.include_patient_friendly_language,
+  }
+}
+
 function mapHistoryStatus(status: string): HistoryEntry['status'] {
   const normalized = status.toLowerCase()
   if (normalized === 'complete' || normalized === 'completed' || normalized === 'success') {
@@ -260,11 +295,20 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
         ? Number((data.validation as { confidence_score?: number }).confidence_score)
         : 0
 
+  const resolvedEncounterType =
+    typeof data.resolved_encounter_type === 'string'
+      ? data.resolved_encounter_type as TranscriptionResult['resolved_encounter_type']
+      : undefined
+
+  const resolvedStyleProfile = data.resolved_style_profile as NoteStyleProfile | undefined
+
   return {
     ...(data as object),
     transcription:    typeof data.transcription === 'string' ? data.transcription : '',
     entities:         entities as TranscriptionResult['entities'],
     soap_note:        soapNote,
+    resolved_encounter_type: resolvedEncounterType,
+    resolved_style_profile: resolvedStyleProfile,
     clinical_representation: clinicalRepresentation,
     quality_report: qualityReport,
     quality_score: qualityScore,
@@ -272,14 +316,34 @@ function normalizeTranscriptionResult(payload: unknown): TranscriptionResult {
   } as TranscriptionResult
 }
 
-export async function transcribeAudio(file: File, audioDurationSeconds?: number | null): Promise<TranscriptionResult> {
+export async function transcribeAudio(
+  file: File,
+  options: {
+    audioDurationSeconds?: number | null
+    encounterType: EncounterType
+    styleOverrides?: Partial<NoteStyleProfile>
+  }
+): Promise<TranscriptionResult> {
   const formData = new FormData()
   formData.append('file', file)
+  formData.append('encounter_type', options.encounterType)
+  if (options.styleOverrides?.note_style_preset) {
+    formData.append('note_style_preset', options.styleOverrides.note_style_preset)
+  }
+  if (options.styleOverrides?.preferred_focus) {
+    formData.append('preferred_focus', options.styleOverrides.preferred_focus)
+  }
+  if (typeof options.styleOverrides?.include_bullets_in_plan === 'boolean') {
+    formData.append('include_bullets_in_plan', String(options.styleOverrides.include_bullets_in_plan))
+  }
+  if (typeof options.styleOverrides?.include_patient_friendly_language === 'boolean') {
+    formData.append('include_patient_friendly_language', String(options.styleOverrides.include_patient_friendly_language))
+  }
   const response = await api.post<TranscriptionResult>('/api/transcribe', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
-      ...(typeof audioDurationSeconds === 'number' && Number.isFinite(audioDurationSeconds)
-        ? { 'X-Audio-Duration-Seconds': String(audioDurationSeconds) }
+      ...(typeof options.audioDurationSeconds === 'number' && Number.isFinite(options.audioDurationSeconds)
+        ? { 'X-Audio-Duration-Seconds': String(options.audioDurationSeconds) }
         : {}),
     },
     timeout: 30 * 60 * 1000,

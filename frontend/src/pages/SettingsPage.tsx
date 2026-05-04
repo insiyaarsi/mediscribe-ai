@@ -3,7 +3,8 @@ import { useAppStore } from '../store/appStore'
 import { toast } from 'sonner'
 import { User, Sliders, Bell, Code, AlertTriangle, Save, Camera } from 'lucide-react'
 import { cn } from '../lib/utils'
-import { deleteAllHistory as deleteAllHistoryAPI, deleteMyAccount } from '../services/api'
+import { deleteAllHistory as deleteAllHistoryAPI, deleteMyAccount, updateCurrentUser } from '../services/api'
+import type { NoteStyleProfile } from '../types'
 
 type SettingsTab = 'profile' | 'preferences' | 'notifications' | 'api' | 'danger'
 
@@ -112,6 +113,12 @@ export default function SettingsPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false)
   const [avatarPreview,    setAvatarPreview]    = useState<string | null>(profile.avatarUrl)
+  const [styleDraft, setStyleDraft] = useState<NoteStyleProfile>({
+    note_style_preset: profile.noteStylePreset,
+    preferred_focus: profile.preferredFocus,
+    include_bullets_in_plan: profile.includeBulletsInPlan,
+    include_patient_friendly_language: profile.includePatientFriendlyLanguage,
+  })
 
   const [draft, setDraft] = useState({ ...profile })
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -122,6 +129,12 @@ export default function SettingsPage() {
   useEffect(() => {
     setDraft({ ...profile })
     setAvatarPreview(profile.avatarUrl)
+    setStyleDraft({
+      note_style_preset: profile.noteStylePreset,
+      preferred_focus: profile.preferredFocus,
+      include_bullets_in_plan: profile.includeBulletsInPlan,
+      include_patient_friendly_language: profile.includePatientFriendlyLanguage,
+    })
   }, [profile])
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,9 +158,42 @@ export default function SettingsPage() {
     reader.readAsDataURL(file)
   }
 
-  const handleSaveProfile = () => {
-    updateProfile(draft)
-    toast.success('Profile saved', { description: 'Your changes have been updated.' })
+  const handleSaveProfile = async () => {
+    try {
+      const user = await updateCurrentUser({
+        first_name: draft.firstName,
+        last_name: draft.lastName,
+        specialty: draft.specialty,
+        hospital: draft.hospital,
+        license_no: draft.licenseNo,
+      })
+      updateProfile({
+        firstName: user.first_name,
+        lastName: user.last_name,
+        email: user.email,
+        specialty: user.specialty ?? '',
+        hospital: user.hospital ?? '',
+        licenseNo: user.license_no ?? '',
+      })
+      toast.success('Profile saved', { description: 'Your changes have been updated.' })
+    } catch {
+      toast.error('Failed to save profile')
+    }
+  }
+
+  const handleSavePreferences = async () => {
+    try {
+      const user = await updateCurrentUser(styleDraft)
+      updateProfile({
+        noteStylePreset: user.note_style_preset,
+        preferredFocus: user.preferred_focus,
+        includeBulletsInPlan: user.include_bullets_in_plan,
+        includePatientFriendlyLanguage: user.include_patient_friendly_language,
+      })
+      toast.success('Preferences saved')
+    } catch {
+      toast.error('Failed to save documentation style')
+    }
   }
 
   const handleClearHistory = async () => {
@@ -340,9 +386,90 @@ export default function SettingsPage() {
                 <Toggle value={preferences.autoCopy} onChange={v => updatePreferences({ autoCopy: v })} />
               </SettingRow>
 
+              <div className="mt-6">
+                <div className={cn(
+                  'text-[14px] font-semibold mb-1',
+                  dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+                )}>
+                  Documentation Style
+                </div>
+                <p className="text-[12.5px] text-[#94A3B8] mb-4">
+                  These settings shape how SOAP notes are written across devices for your account.
+                </p>
+
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div>
+                    <label className={cn(
+                      'block text-[13px] font-semibold mb-[5px]',
+                      dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]'
+                    )}>
+                      Note Style Preset
+                    </label>
+                    <select
+                      value={styleDraft.note_style_preset}
+                      onChange={(e) => setStyleDraft((prev) => ({
+                        ...prev,
+                        note_style_preset: e.target.value as NoteStyleProfile['note_style_preset'],
+                      }))}
+                      className={cn(
+                        'w-full px-[13px] py-[9px] border rounded-[10px] text-[14px] font-sans outline-none',
+                        'focus:border-[#1A56DB] transition-all duration-[180ms]',
+                        dark
+                          ? 'bg-[#0F172A] border-[#334155] text-[#E2E8F0]'
+                          : 'bg-[#F7FAFC] border-[#E2E8F0] text-[#0D1B2A] focus:bg-white'
+                      )}
+                    >
+                      <option value="balanced">Balanced</option>
+                      <option value="concise">Concise</option>
+                      <option value="detailed">Detailed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={cn(
+                      'block text-[13px] font-semibold mb-[5px]',
+                      dark ? 'text-[#E2E8F0]' : 'text-[#0D1B2A]'
+                    )}>
+                      Preferred Focus
+                    </label>
+                    <select
+                      value={styleDraft.preferred_focus}
+                      onChange={(e) => setStyleDraft((prev) => ({
+                        ...prev,
+                        preferred_focus: e.target.value as NoteStyleProfile['preferred_focus'],
+                      }))}
+                      className={cn(
+                        'w-full px-[13px] py-[9px] border rounded-[10px] text-[14px] font-sans outline-none',
+                        'focus:border-[#1A56DB] transition-all duration-[180ms]',
+                        dark
+                          ? 'bg-[#0F172A] border-[#334155] text-[#E2E8F0]'
+                          : 'bg-[#F7FAFC] border-[#E2E8F0] text-[#0D1B2A] focus:bg-white'
+                      )}
+                    >
+                      <option value="general">General</option>
+                      <option value="symptom_driven">Symptom-driven</option>
+                      <option value="assessment_driven">Assessment-driven</option>
+                      <option value="plan_driven">Plan-driven</option>
+                    </select>
+                  </div>
+                </div>
+
+                <SettingRow dark={dark} label="Bullet-style Plan" sub="Format the plan with concise bullet-like lines when appropriate">
+                  <Toggle
+                    value={styleDraft.include_bullets_in_plan}
+                    onChange={(v) => setStyleDraft((prev) => ({ ...prev, include_bullets_in_plan: v }))}
+                  />
+                </SettingRow>
+                <SettingRow dark={dark} label="Patient-friendly Language" sub="Use clearer counselling phrasing when the recording already supports it">
+                  <Toggle
+                    value={styleDraft.include_patient_friendly_language}
+                    onChange={(v) => setStyleDraft((prev) => ({ ...prev, include_patient_friendly_language: v }))}
+                  />
+                </SettingRow>
+              </div>
+
               <div className={cn('flex justify-end', footerDivider)}>
                 <button
-                  onClick={() => toast.success('Preferences saved')}
+                  onClick={handleSavePreferences}
                   className="flex items-center gap-2 px-[16px] py-[8px] rounded-[10px] bg-[#1A56DB] text-white text-[13px] font-semibold hover:bg-[#1648C0] transition-all duration-[180ms]"
                 >
                   <Save size={13} />

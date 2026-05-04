@@ -15,6 +15,17 @@ export interface SOAPNote {
   plan:       string
 }
 
+export type NoteStylePreset = 'balanced' | 'concise' | 'detailed'
+export type PreferredFocus = 'general' | 'symptom_driven' | 'assessment_driven' | 'plan_driven'
+export type EncounterType = 'acute_visit' | 'follow_up' | 'counselling_education' | 'medication_review'
+
+export interface NoteStyleProfile {
+  note_style_preset: NoteStylePreset
+  preferred_focus: PreferredFocus
+  include_bullets_in_plan: boolean
+  include_patient_friendly_language: boolean
+}
+
 export interface ClinicalRepresentation {
   patient?: Record<string, unknown>
   encounter?: Record<string, unknown>
@@ -40,6 +51,8 @@ export interface TranscriptionResult {
   entities:         MedicalEntity[]
   soap_note:        SOAPNote
   confidence_score: number
+  resolved_encounter_type?: EncounterType
+  resolved_style_profile?: NoteStyleProfile
   clinical_representation?: ClinicalRepresentation
   quality_report?: SOAPQualityReport
   quality_score?: number

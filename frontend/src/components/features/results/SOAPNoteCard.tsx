@@ -113,12 +113,24 @@ export default function SOAPNoteCard({ compact: _compact = false }: SOAPNoteCard
         'flex items-center justify-between px-[18px] py-[13px] border-b',
         dark ? 'border-[#334155]' : 'border-[#E2E8F0]'
       )}>
-        <div className={cn(
-          'flex items-center gap-2 font-head text-[13px] font-semibold',
-          dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
-        )}>
-          <div className="w-[8px] h-[8px] rounded-full bg-[#888]" />
-          SOAP Note
+        <div>
+          <div className={cn(
+            'flex items-center gap-2 font-head text-[13px] font-semibold',
+            dark ? 'text-[#F1F5F9]' : 'text-[#0D1B2A]'
+          )}>
+            <div className="w-[8px] h-[8px] rounded-full bg-[#888]" />
+            SOAP Note
+          </div>
+          {(transcriptionResult.resolved_encounter_type || transcriptionResult.resolved_style_profile) && (
+            <div className="text-[11px] text-[#94A3B8] mt-1">
+              {transcriptionResult.resolved_encounter_type
+                ? `Encounter: ${transcriptionResult.resolved_encounter_type.replaceAll('_', ' ')}`
+                : null}
+              {transcriptionResult.resolved_style_profile
+                ? ` · Style: ${transcriptionResult.resolved_style_profile.note_style_preset}`
+                : null}
+            </div>
+          )}
         </div>
         <div className="flex gap-2">
           <button onClick={handleCopyAll} className={actionBtnClass}>

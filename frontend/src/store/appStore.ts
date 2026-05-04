@@ -11,9 +11,16 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { AppPage, HistoryEntry, TranscriptionResult, UploadState } from '../types'
+import type {
+  AppPage,
+  EncounterType,
+  HistoryEntry,
+  NoteStylePreset,
+  TranscriptionResult,
+  UploadState,
+} from '../types'
 import { formatDate } from '../lib/utils'
-import { clearStoredToken, type UserPublic } from '../services/api'
+import { clearStoredToken, getUserStyleProfile, type UserPublic } from '../services/api'
 
 interface UserProfile {
   firstName:  string
@@ -23,6 +30,10 @@ interface UserProfile {
   hospital:   string
   licenseNo:  string
   avatarUrl:  string | null
+  noteStylePreset: NoteStylePreset
+  preferredFocus: 'general' | 'symptom_driven' | 'assessment_driven' | 'plan_driven'
+  includeBulletsInPlan: boolean
+  includePatientFriendlyLanguage: boolean
 }
 
 interface Preferences {
@@ -47,6 +58,10 @@ const DEFAULT_PROFILE: UserProfile = {
   hospital:   '',
   licenseNo:  '',
   avatarUrl:  null,
+  noteStylePreset: 'balanced',
+  preferredFocus: 'general',
+  includeBulletsInPlan: false,
+  includePatientFriendlyLanguage: false,
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
@@ -84,12 +99,16 @@ interface AppState {
   transcriptionResult: TranscriptionResult | null
   processingStatus:    string
   errorMessage:        string | null
+  selectedEncounterType: EncounterType | null
+  styleOverridePreset: NoteStylePreset | null
 
   setFile:             (file: File | null) => void
   setUploadState:      (state: UploadState) => void
   setProcessingStatus: (status: string) => void
   setResult:           (result: TranscriptionResult) => void
   setError:            (msg: string | null) => void
+  setEncounterType:    (encounterType: EncounterType | null) => void
+  setStyleOverridePreset: (preset: NoteStylePreset | null) => void
   clearUpload:         () => void
 
   // History — loaded from API on login, cached in Zustand for UI
@@ -128,6 +147,7 @@ export const useAppStore = create<AppState>()(
       isAuthenticated: false,
       authUser: null,
       setAuth: (user) => {
+        const styleProfile = getUserStyleProfile(user)
         set({
           isAuthenticated: true,
           authUser: user,
@@ -140,6 +160,10 @@ export const useAppStore = create<AppState>()(
             hospital:  user.hospital  ?? '',
             licenseNo: user.license_no ?? '',
             avatarUrl: null,
+            noteStylePreset: styleProfile.note_style_preset,
+            preferredFocus: styleProfile.preferred_focus,
+            includeBulletsInPlan: styleProfile.include_bullets_in_plan,
+            includePatientFriendlyLanguage: styleProfile.include_patient_friendly_language,
           },
         })
       },
@@ -160,15 +184,20 @@ export const useAppStore = create<AppState>()(
       transcriptionResult: null,
       processingStatus:    '',
       errorMessage:        null,
+      selectedEncounterType: null,
+      styleOverridePreset: null,
 
       setFile:             (file) => set({ selectedFile: file, uploadState: file ? 'selected' : 'idle', errorMessage: null }),
       setUploadState:      (state) => set({ uploadState: state }),
       setProcessingStatus: (status) => set({ processingStatus: status }),
       setResult:           (result) => set({ transcriptionResult: result, uploadState: 'done' }),
       setError:            (msg) => set({ errorMessage: msg, uploadState: 'error' }),
+      setEncounterType:    (encounterType) => set({ selectedEncounterType: encounterType }),
+      setStyleOverridePreset: (preset) => set({ styleOverridePreset: preset }),
       clearUpload: () => set({
         uploadState: 'idle', selectedFile: null,
         transcriptionResult: null, processingStatus: '', errorMessage: null,
+        selectedEncounterType: null, styleOverridePreset: null,
       }),
 
       // History
@@ -195,7 +224,21 @@ export const useAppStore = create<AppState>()(
       preferences:   { ...DEFAULT_PREFERENCES },
       notifications: { ...DEFAULT_NOTIFICATIONS },
 
-      updateProfile:       (p) => set((s) => ({ profile:       { ...s.profile,       ...p } })),
+      updateProfile:       (p) => set((s) => ({
+        profile: { ...s.profile, ...p },
+        authUser: s.authUser ? {
+          ...s.authUser,
+          first_name: p.firstName ?? s.authUser.first_name,
+          last_name: p.lastName ?? s.authUser.last_name,
+          specialty: p.specialty ?? s.authUser.specialty,
+          hospital: p.hospital ?? s.authUser.hospital,
+          license_no: p.licenseNo ?? s.authUser.license_no,
+          note_style_preset: p.noteStylePreset ?? s.authUser.note_style_preset,
+          preferred_focus: p.preferredFocus ?? s.authUser.preferred_focus,
+          include_bullets_in_plan: p.includeBulletsInPlan ?? s.authUser.include_bullets_in_plan,
+          include_patient_friendly_language: p.includePatientFriendlyLanguage ?? s.authUser.include_patient_friendly_language,
+        } : null,
+      })),
       updatePreferences:   (p) => set((s) => ({ preferences:   { ...s.preferences,   ...p } })),
       updateNotifications: (n) => set((s) => ({ notifications: { ...s.notifications, ...n } })),
       resetSettings: () => set({
