@@ -9,7 +9,7 @@
 # independently from the schema.
 
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -34,6 +34,13 @@ class TokenResponse(BaseModel):
     user: "UserPublic"
 
 
+class NoteStyleProfile(BaseModel):
+    note_style_preset: Literal["balanced", "concise", "detailed"] = "balanced"
+    preferred_focus: Literal["general", "symptom_driven", "assessment_driven", "plan_driven"] = "general"
+    include_bullets_in_plan: bool = False
+    include_patient_friendly_language: bool = False
+
+
 class UserPublic(BaseModel):
     id:         int
     email:      str
@@ -42,6 +49,10 @@ class UserPublic(BaseModel):
     specialty:  Optional[str]
     hospital:   Optional[str]
     license_no: Optional[str]
+    note_style_preset: Literal["balanced", "concise", "detailed"] = "balanced"
+    preferred_focus: Literal["general", "symptom_driven", "assessment_driven", "plan_driven"] = "general"
+    include_bullets_in_plan: bool = False
+    include_patient_friendly_language: bool = False
 
     class Config:
         from_attributes = True
@@ -49,6 +60,18 @@ class UserPublic(BaseModel):
 
 # Required for forward reference in TokenResponse
 TokenResponse.model_rebuild()
+
+
+class UpdateProfileRequest(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    specialty: Optional[str] = None
+    hospital: Optional[str] = None
+    license_no: Optional[str] = None
+    note_style_preset: Optional[Literal["balanced", "concise", "detailed"]] = None
+    preferred_focus: Optional[Literal["general", "symptom_driven", "assessment_driven", "plan_driven"]] = None
+    include_bullets_in_plan: Optional[bool] = None
+    include_patient_friendly_language: Optional[bool] = None
 
 
 # ── History ───────────────────────────────────────────────────────────────────

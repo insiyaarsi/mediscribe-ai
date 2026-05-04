@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ChangeEvent, DragEvent } from 'react'
 import { useAppStore } from '../../../store/appStore'
 import { cn } from '../../../lib/utils'
 import { Upload, Music, X, Play, Pause } from 'lucide-react'
@@ -38,14 +39,14 @@ export default function UploadZone() {
     setFile(file)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault()
     setIsDragOver(false)
     const file = e.dataTransfer.files[0]
     if (file) validateAndSetFile(file)
   }
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) validateAndSetFile(file)
   }

@@ -1,9 +1,10 @@
 from dotenv import load_dotenv
 load_dotenv()
 
-from fastapi import FastAPI, File, Header, UploadFile, HTTPException, Request, Response, Depends, status
+from fastapi import FastAPI, File, Header, UploadFile, HTTPException, Request, Response, Depends, status, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy import inspect, text
 from sqlalchemy.orm import Session, selectinload
 import os
 import time
@@ -16,15 +17,40 @@ from content_validator import validate_medical_content
 from spell_correction import correct_medical_spelling
 from database import get_db, engine
 from auth import hash_password, verify_password, create_access_token, get_current_user
+from documentation_style import normalize_encounter_type, resolve_style_profile
 import models
 import schemas
 from lib.utils import generate_patient_id, estimate_duration
-from runtime_context import set_reference_date, reset_reference_date
 
 # Create all tables on startup if they do not exist.
 # In production, Alembic handles migrations. This line is a safe fallback that
 # ensures tables exist on first boot without requiring a manual migration step.
 models.Base.metadata.create_all(bind=engine)
+
+
+def _ensure_user_style_columns() -> None:
+    inspector = inspect(engine)
+    if "users" not in inspector.get_table_names():
+        return
+
+    existing_columns = {column["name"] for column in inspector.get_columns("users")}
+    required_alters = {
+        "note_style_preset": "ALTER TABLE users ADD COLUMN note_style_preset VARCHAR NOT NULL DEFAULT 'balanced'",
+        "preferred_focus": "ALTER TABLE users ADD COLUMN preferred_focus VARCHAR NOT NULL DEFAULT 'general'",
+        "include_bullets_in_plan": "ALTER TABLE users ADD COLUMN include_bullets_in_plan BOOLEAN NOT NULL DEFAULT false",
+        "include_patient_friendly_language": "ALTER TABLE users ADD COLUMN include_patient_friendly_language BOOLEAN NOT NULL DEFAULT false",
+    }
+
+    missing = [statement for column, statement in required_alters.items() if column not in existing_columns]
+    if not missing:
+        return
+
+    with engine.begin() as connection:
+        for statement in missing:
+            connection.execute(text(statement))
+
+
+_ensure_user_style_columns()
 
 app = FastAPI(
     title="MediScribe AI API",
@@ -129,6 +155,21 @@ def get_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 
+@app.put("/api/auth/me", response_model=schemas.UserPublic)
+def update_me(
+    payload: schemas.UpdateProfileRequest,
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    updates = payload.model_dump(exclude_unset=True)
+    for field, value in updates.items():
+        setattr(current_user, field, value)
+    db.add(current_user)
+    db.commit()
+    db.refresh(current_user)
+    return current_user
+
+
 # ── History ───────────────────────────────────────────────────────────────────
 
 @app.get("/api/history", response_model=list[schemas.HistoryEntryOut])
@@ -227,6 +268,11 @@ def delete_my_account(
 async def transcribe_audio_endpoint(
     request: Request,
     file: UploadFile = File(...),
+    encounter_type: str = Form(...),
+    note_style_preset: str | None = Form(default=None),
+    preferred_focus: str | None = Form(default=None),
+    include_bullets_in_plan: bool | None = Form(default=None),
+    include_patient_friendly_language: bool | None = Form(default=None),
     audio_duration_seconds: float | None = Header(default=None, alias="X-Audio-Duration-Seconds"),
     current_user: models.User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -241,6 +287,17 @@ async def transcribe_audio_endpoint(
     print(f"User: {current_user.email} (id={current_user.id})")
     print(f"File: {file.filename}")
 
+    resolved_encounter_type = normalize_encounter_type(encounter_type)
+    resolved_style_profile = resolve_style_profile(
+        user=current_user,
+        overrides={
+            "note_style_preset": note_style_preset,
+            "preferred_focus": preferred_focus,
+            "include_bullets_in_plan": include_bullets_in_plan,
+            "include_patient_friendly_language": include_patient_friendly_language,
+        },
+    )
+
     allowed_extensions = ['.mp3', '.wav', '.m4a', '.webm', '.ogg', '.flac']
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in allowed_extensions:
@@ -251,7 +308,6 @@ async def transcribe_audio_endpoint(
 
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     request_started_at = time.perf_counter()
-    reference_token = set_reference_date(request.headers.get("X-Client-Date"))
     minimum_audio_duration_seconds = 45
 
     try:
@@ -323,6 +379,7 @@ async def transcribe_audio_endpoint(
         clinical_representation = extract_clinical_representation(
             transcription_result,
             entities_result["categorized"],
+            resolved_encounter_type,
         )
         print(f"Encounter type: {clinical_representation.get('encounter', {}).get('type')}")
 
@@ -332,6 +389,7 @@ async def transcribe_audio_endpoint(
             transcription_result,
             entities_result['categorized'],
             clinical_representation,
+            resolved_style_profile,
         )
         soap_text = format_soap_note_text(soap_note)
         print("SOAP note generated")
@@ -405,6 +463,8 @@ async def transcribe_audio_endpoint(
             "clinical_representation": clinical_representation,
             "quality_report": soap_note.get("quality_report"),
             "quality_score": soap_note.get("quality_score"),
+            "resolved_encounter_type": resolved_encounter_type,
+            "resolved_style_profile": resolved_style_profile,
             "processing_time": processing_time,
             "db_id":          db_transcription.id,
         }
@@ -414,8 +474,6 @@ async def transcribe_audio_endpoint(
             os.remove(file_path)
         print(f"\nERROR in transcribe endpoint: {str(e)}\n")
         raise HTTPException(status_code=500, detail=str(e))
-    finally:
-        reset_reference_date(reference_token)
 
 
 # ── Download ──────────────────────────────────────────────────────────────────

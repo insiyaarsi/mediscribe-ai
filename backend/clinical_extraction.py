@@ -16,8 +16,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from runtime_context import get_reference_datetime
-
 try:
     from groq import Groq
 except ImportError:  # pragma: no cover
@@ -38,7 +36,11 @@ MONTH_NAME_TO_NUMBER = {
     "november": 11,
     "december": 12,
 }
-def extract_clinical_representation(transcription: str, categorized_entities: dict) -> dict:
+def extract_clinical_representation(
+    transcription: str,
+    categorized_entities: dict,
+    encounter_type: str | None = None,
+) -> dict:
     """
     Return a normalized intermediate clinical representation.
 
@@ -47,13 +49,14 @@ def extract_clinical_representation(transcription: str, categorized_entities: di
     """
     try:
         structured = _extract_with_groq(transcription, categorized_entities)
-        return _postprocess_representation(structured, transcription, categorized_entities)
+        return _postprocess_representation(structured, transcription, categorized_entities, encounter_type)
     except Exception as exc:
         print(f"Structured extraction via Groq failed: {exc}")
         return _postprocess_representation(
             _extract_with_rules(transcription, categorized_entities),
             transcription,
             categorized_entities,
+            encounter_type,
         )
 
 
@@ -196,7 +199,12 @@ def _extract_with_rules(transcription: str, categorized_entities: dict) -> dict:
     }
 
 
-def _postprocess_representation(rep: dict, transcription: str, categorized_entities: dict) -> dict:
+def _postprocess_representation(
+    rep: dict,
+    transcription: str,
+    categorized_entities: dict,
+    encounter_type: str | None = None,
+) -> dict:
     heuristic_rep = _extract_with_rules(transcription, categorized_entities)
     patient = rep.setdefault("patient", {})
     encounter = rep.setdefault("encounter", {})
@@ -219,7 +227,7 @@ def _postprocess_representation(rep: dict, transcription: str, categorized_entit
         if encounter.get(key) in (None, "", []):
             encounter[key] = value
 
-    encounter.setdefault("type", _infer_encounter_type(transcription.lower()))
+    encounter["type"] = encounter_type or encounter.get("type") or _infer_encounter_type(transcription.lower())
     encounter.setdefault("history_only", True)
 
     for key in ("current_symptoms", "historical_symptoms", "ideas", "concerns", "expectations", "emotional_response"):
@@ -290,7 +298,7 @@ def _extract_patient_details(transcription: str) -> dict:
 
     if details["date_of_birth"] is None and month is not None:
         details["date_of_birth"] = f"{day:02d}/{month:02d}/{year}"
-        today = get_reference_datetime()
+        today = datetime.utcnow()
         age = today.year - year - ((today.month, today.day) < (month, day))
         if 0 <= age <= 120:
             details["age_years"] = age
@@ -330,7 +338,7 @@ def _infer_encounter_type(text_lower: str) -> str:
         "talk a bit more about today",
         "help in managing the diabetes",
     ]):
-        return "counselling_or_education"
+        return "counselling_education"
     if any(marker in text_lower for marker in [
         "follow-up", "review appointment", "reviewed today",
     ]):
@@ -338,8 +346,8 @@ def _infer_encounter_type(text_lower: str) -> str:
     if any(marker in text_lower for marker in [
         "chest pain", "shortness of breath", "worsening", "urgent",
     ]):
-        return "acute_presentation"
-    return "general_consultation"
+        return "acute_visit"
+    return "follow_up"
 
 
 def _compact_entities(categorized_entities: dict) -> dict:
@@ -405,7 +413,7 @@ def _extract_psychosocial_factors(text_lower: str) -> list[str]:
 
 
 def _monitoring_suggestions(encounter_type: str, text_lower: str) -> list[str]:
-    if encounter_type not in {"counselling_or_education", "general_consultation"} or "diabetes" not in text_lower:
+    if encounter_type not in {"counselling_education", "follow_up"} or "diabetes" not in text_lower:
         return []
     return [
         "Review HbA1c and baseline blood results.",
@@ -417,7 +425,7 @@ def _monitoring_suggestions(encounter_type: str, text_lower: str) -> list[str]:
 
 
 def _referral_suggestions(encounter_type: str, text_lower: str) -> list[str]:
-    if encounter_type not in {"counselling_or_education", "general_consultation"} or "diabetes" not in text_lower:
+    if encounter_type not in {"counselling_education", "follow_up"} or "diabetes" not in text_lower:
         return []
     return [
         "Refer to a structured diabetes education programme such as DESMOND.",
@@ -427,7 +435,7 @@ def _referral_suggestions(encounter_type: str, text_lower: str) -> list[str]:
 
 
 def _follow_up_suggestions(encounter_type: str, text_lower: str) -> list[str]:
-    if encounter_type in {"counselling_or_education", "general_consultation"} and "diabetes" in text_lower:
+    if encounter_type in {"counselling_education", "follow_up"} and "diabetes" in text_lower:
         return ["Arrange GP/primary care follow-up within 1 to 2 weeks to review results and formalise the management plan."]
     return []
 
@@ -436,7 +444,7 @@ def _safety_netting_suggestions(encounter_type: str, text_lower: str) -> list[st
     suggestions = []
     if "give us a call" in text_lower or "book in to speak" in text_lower:
         suggestions.append("Advised to contact the GP surgery or book review with further questions.")
-    if encounter_type in {"counselling_or_education", "general_consultation"} and "diabetes" in text_lower:
+    if encounter_type in {"counselling_education", "follow_up"} and "diabetes" in text_lower:
         suggestions.append("Advised to seek review for worsening hyperglycaemic symptoms or signs of infection.")
     return suggestions
 
@@ -457,7 +465,7 @@ def _generic_history_gaps(text_lower: str, encounter_type: str) -> list[str]:
     if "family history" not in text_lower and "dad passed away" not in text_lower and "father" not in text_lower:
         gaps.append("Family history not elicited in this recording.")
 
-    if encounter_type == "acute_presentation" and "chest pain" in text_lower:
+    if encounter_type == "acute_visit" and "chest pain" in text_lower:
         if not any(term in text_lower for term in ["lean forward", "leaning forward", "sit forward"]):
             gaps.append("Relief on leaning forward was not explored in this recording.")
 

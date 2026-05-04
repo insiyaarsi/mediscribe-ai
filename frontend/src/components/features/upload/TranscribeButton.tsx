@@ -87,6 +87,7 @@ export default function TranscribeButton() {
     uploadState, selectedFile,
     setUploadState, setProcessingStatus, setResult,
     setError, addToHistory, setHistory,
+    selectedEncounterType, styleOverridePreset,
   } = useAppStore()
 
   const progressRef = useRef<HTMLDivElement>(null)
@@ -97,6 +98,7 @@ export default function TranscribeButton() {
 
   const isSelected   = uploadState === 'selected'
   const isProcessing = uploadState === 'processing'
+  const canTranscribe = Boolean(selectedFile && selectedEncounterType && !isProcessing)
 
   // Animate the progress bar through fake stages while API call runs
   const startFakeProgress = (estimatedTotalSeconds: number) => {
@@ -163,7 +165,13 @@ export default function TranscribeButton() {
     startFakeProgress(estimatedTotalSeconds)
 
     try {
-      const result = await transcribeAudio(selectedFile, audioDurationSeconds)
+      const result = await transcribeAudio(selectedFile, {
+        audioDurationSeconds,
+        encounterType: selectedEncounterType!,
+        styleOverrides: styleOverridePreset
+          ? { note_style_preset: styleOverridePreset }
+          : undefined,
+      })
       finishProgress()
 
       // Short pause so the bar hits 100% visually before disappearing
@@ -232,7 +240,7 @@ export default function TranscribeButton() {
         )}
         <button
           onClick={handleTranscribe}
-          disabled={isProcessing}
+          disabled={!canTranscribe}
           className="flex items-center gap-[8px] px-[20px] py-[9px] rounded-[10px] bg-[#1A56DB] text-white text-[13.5px] font-semibold disabled:opacity-70 disabled:cursor-not-allowed hover:bg-[#1648C0] hover:shadow-[0_4px_14px_rgba(26,86,219,0.35)] hover:-translate-y-px transition-all duration-[180ms]"
         >
           {isProcessing

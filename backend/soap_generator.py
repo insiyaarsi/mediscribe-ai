@@ -11,7 +11,7 @@ import json
 import re
 from datetime import datetime
 from groq import Groq
-from runtime_context import get_reference_datetime
+from documentation_style import DEFAULT_STYLE_PROFILE, resolve_style_profile
 
 INSUFFICIENT_SECTION_TEXT = "Not enough information in the recording to complete this section."
 
@@ -33,7 +33,12 @@ MONTH_NAME_TO_NUMBER = {
 # Public entry point
 # ---------------------------------------------------------------------------
 
-def generate_soap_note(transcription: str, categorized_entities: dict, clinical_representation: dict | None = None) -> dict:
+def generate_soap_note(
+    transcription: str,
+    categorized_entities: dict,
+    clinical_representation: dict | None = None,
+    style_profile: dict | None = None,
+) -> dict:
     """
     Generate a SOAP note from transcribed text and categorized medical entities.
 
@@ -52,20 +57,37 @@ def generate_soap_note(transcription: str, categorized_entities: dict, clinical_
         Each section value is either a clinical prose string (Groq path) or
         a structured dict (fallback path) — the frontend handles both shapes.
     """
+    resolved_style_profile = resolve_style_profile(overrides=style_profile or DEFAULT_STYLE_PROFILE)
     try:
-        soap = _generate_with_groq(transcription, categorized_entities, clinical_representation)
+        soap = _generate_with_groq(
+            transcription,
+            categorized_entities,
+            clinical_representation,
+            resolved_style_profile,
+        )
         soap = _validate_and_repair_soap_note(transcription, soap, clinical_representation or {})
+        if resolved_style_profile["include_bullets_in_plan"]:
+            soap["plan"] = _format_plan_with_bullets(str(soap.get("plan", "")))
         soap["generated_at"] = datetime.now().isoformat()
         soap["source"] = "groq-llama-3.1-70b-versatile"
+        soap["resolved_style_profile"] = resolved_style_profile
         print("SOAP note generated via Groq llama-3.3-70b-versatile")
         return soap
     except Exception as exc:
         print(f"Groq SOAP generation failed: {exc}")
         print("Falling back to rule-based SOAP generation")
-        soap = _generate_fallback(transcription, categorized_entities, clinical_representation or {})
+        soap = _generate_fallback(
+            transcription,
+            categorized_entities,
+            clinical_representation or {},
+            resolved_style_profile,
+        )
         soap = _validate_and_repair_soap_note(transcription, soap, clinical_representation or {})
+        if resolved_style_profile["include_bullets_in_plan"]:
+            soap["plan"] = _format_plan_with_bullets(str(soap.get("plan", "")))
         soap["generated_at"] = datetime.now().isoformat()
         soap["source"] = "rule-based-fallback"
+        soap["resolved_style_profile"] = resolved_style_profile
         return soap
 
 
@@ -101,6 +123,42 @@ def _build_clinical_representation_summary(clinical_representation: dict | None)
     return json.dumps(clinical_representation, indent=2)
 
 
+def _build_style_profile_summary(style_profile: dict | None) -> str:
+    resolved = resolve_style_profile(overrides=style_profile or DEFAULT_STYLE_PROFILE)
+    preset = resolved["note_style_preset"]
+    focus = resolved["preferred_focus"]
+
+    instructions = []
+    if preset == "concise":
+        instructions.append("Keep each SOAP section concise and avoid unnecessary recap.")
+    elif preset == "detailed":
+        instructions.append("Provide fuller clinical detail where the transcript supports it.")
+    else:
+        instructions.append("Use a balanced professional SOAP style.")
+
+    if focus == "symptom_driven":
+        instructions.append("Emphasize HPI and subjective symptom organization.")
+    elif focus == "assessment_driven":
+        instructions.append("Emphasize diagnostic framing and clinical reasoning in assessment.")
+    elif focus == "plan_driven":
+        instructions.append("Emphasize actionability, follow-up, and next steps in plan.")
+
+    if resolved["include_bullets_in_plan"]:
+        instructions.append("Format the plan section using concise bullet-like lines where safe.")
+    else:
+        instructions.append("Keep the plan section in paragraph form unless clearer structure is needed.")
+
+    if resolved["include_patient_friendly_language"]:
+        instructions.append(
+            "Where counselling language is already supported by the transcript, use clearer patient-friendly phrasing without simplifying diagnoses inaccurately."
+        )
+
+    return json.dumps({
+        "resolved_style_profile": resolved,
+        "generation_instructions": instructions,
+    }, indent=2)
+
+
 def _extract_patient_context(transcription: str) -> dict:
     """
     Pull lightweight structured context from the transcript to ground the prompt.
@@ -113,7 +171,7 @@ def _extract_patient_context(transcription: str) -> dict:
         "clinician_role": None,
         "history_only_encounter": True,
         "encounter_type": _infer_encounter_type(transcription),
-        "current_date_utc": get_reference_datetime().strftime("%Y-%m-%d"),
+        "current_date_utc": datetime.utcnow().strftime("%Y-%m-%d"),
     }
 
     name_match = re.search(
@@ -142,7 +200,7 @@ def _extract_patient_context(transcription: str) -> dict:
 
     if month is not None:
         context["date_of_birth"] = f"{day:02d}/{month:02d}/{year}"
-        today = get_reference_datetime()
+        today = datetime.utcnow()
         age = today.year - year - ((today.month, today.day) < (month, day))
         if 0 <= age <= 120:
             context["calculated_age_years"] = age
@@ -180,10 +238,10 @@ def _infer_encounter_type(transcription: str) -> str:
     ]
 
     if any(marker in text_lower for marker in counselling_markers):
-        return "counselling_or_education"
+        return "counselling_education"
     if any(marker in text_lower for marker in acute_markers):
-        return "acute_presentation"
-    return "general_consultation"
+        return "acute_visit"
+    return "follow_up"
 
 
 _SYSTEM_PROMPT = """You are a clinical documentation assistant that enhances
@@ -395,7 +453,12 @@ Rules:
 """
 
 
-def _generate_with_groq(transcription: str, categorized_entities: dict, clinical_representation: dict | None = None) -> dict:
+def _generate_with_groq(
+    transcription: str,
+    categorized_entities: dict,
+    clinical_representation: dict | None = None,
+    style_profile: dict | None = None,
+) -> dict:
     """
     Call Groq API and parse the JSON response into a SOAP dict.
 
@@ -409,11 +472,13 @@ def _generate_with_groq(transcription: str, categorized_entities: dict, clinical
     entity_summary = _build_entity_summary(categorized_entities)
     patient_context = _extract_patient_context(transcription)
     structured_summary = _build_clinical_representation_summary(clinical_representation)
+    style_summary = _build_style_profile_summary(style_profile)
 
     user_message = (
         f"Transcript:\n{transcription}\n\n"
         f"Prompt metadata:\n{json.dumps(patient_context, indent=2)}\n\n"
         f"Structured clinical representation:\n{structured_summary}\n\n"
+        f"Documentation style profile:\n{style_summary}\n\n"
         f"Extracted medical entities:\n{entity_summary}\n\n"
         "Generate the SOAP note as JSON."
     )
@@ -489,7 +554,12 @@ def _regenerate_section_with_groq(
 # Rule-based fallback path (preserved from original implementation)
 # ---------------------------------------------------------------------------
 
-def _generate_fallback(transcription: str, categorized_entities: dict, clinical_representation: dict | None = None) -> dict:
+def _generate_fallback(
+    transcription: str,
+    categorized_entities: dict,
+    clinical_representation: dict | None = None,
+    style_profile: dict | None = None,
+) -> dict:
     """
     Rule-based SOAP generation used when the GPT call fails.
     Produces a structured dict rather than clinical prose — the frontend
@@ -499,8 +569,9 @@ def _generate_fallback(transcription: str, categorized_entities: dict, clinical_
     conditions = categorized_entities.get("conditions", [])
     medications = categorized_entities.get("medications", [])
     procedures = categorized_entities.get("procedures", [])
+    resolved_style_profile = resolve_style_profile(overrides=style_profile or DEFAULT_STYLE_PROFILE)
 
-    return {
+    soap = {
         "generated_at": datetime.now().isoformat(),
         "source": "rule-based-fallback",
         "subjective": _fallback_subjective(transcription, symptoms, clinical_representation or {}),
@@ -508,6 +579,16 @@ def _generate_fallback(transcription: str, categorized_entities: dict, clinical_
         "assessment": _fallback_assessment(conditions, clinical_representation or {}),
         "plan": _fallback_plan(medications, procedures, clinical_representation or {}),
     }
+    if resolved_style_profile["include_bullets_in_plan"]:
+        soap["plan"] = _format_plan_with_bullets(str(soap["plan"]))
+    return soap
+
+
+def _format_plan_with_bullets(plan: str) -> str:
+    sentences = _split_sentences(plan)
+    if len(sentences) <= 1:
+        return plan
+    return "\n".join(f"- {sentence}" for sentence in sentences)
 
 
 def _normalize_soap_sections(soap: dict) -> dict:
@@ -739,7 +820,7 @@ def _apply_clinical_consistency_rules(transcription: str, soap: dict) -> dict:
     text_lower = transcription.lower()
     encounter_type = _infer_encounter_type(transcription)
     diabetes_counselling = (
-        encounter_type == "counselling_or_education"
+        encounter_type == "counselling_education"
         and "diabetes" in text_lower
     )
 
@@ -935,7 +1016,7 @@ def _collect_soap_issues(transcription: str, soap: dict, clinical_representation
     if age is not None and f"{age}-year-old" not in subjective and re.search(r"\b\d{1,3}-year-old\b", subjective):
         issues.append("age_mismatch")
 
-    if encounter_type == "counselling_or_education":
+    if encounter_type == "counselling_education":
         if any(term in plan for term in ["nsaid", "gastroprotection", "colchicine", "avoid strenuous exercise", "rest as needed"]):
             issues.append("unsupported_counselling_plan_items")
         if "insulin" in plan and "insulin" not in text_lower:
@@ -991,10 +1072,10 @@ def _collect_section_issues(transcription: str, soap: dict, clinical_representat
         issues["objective"].append("missing_specific_result_names")
     if "history-taking only" not in objective.lower() and "history taking only" not in objective.lower() and clinical_representation.get("encounter", {}).get("history_only"):
         issues["objective"].append("missing_history_only_framing")
-    if encounter_type == "counselling_or_education" and "ecg" in objective.lower():
+    if encounter_type == "counselling_education" and "ecg" in objective.lower():
         issues["objective"].append("irrelevant_ecg_template")
 
-    if encounter_type == "counselling_or_education":
+    if encounter_type == "counselling_education":
         if any(term in assessment.lower() for term in ["cardiovascular disease", "neuropathy"]) and "less likely" in assessment.lower():
             issues["assessment"].append("future_risks_as_differential")
         if assessment_context.get("historical_manifestations") and not any(
@@ -1016,11 +1097,11 @@ def _collect_section_issues(transcription: str, soap: dict, clinical_representat
         issues["plan"].append("missing_monitoring")
     if plan_context.get("follow_up_needs") and "follow-up" not in plan.lower() and "follow up" not in plan.lower():
         issues["plan"].append("missing_follow_up")
-    if encounter_type == "counselling_or_education" and plan_context.get("referrals_to_consider") and "refer" not in plan.lower() and "referral" not in plan.lower():
+    if encounter_type == "counselling_education" and plan_context.get("referrals_to_consider") and "refer" not in plan.lower() and "referral" not in plan.lower():
         issues["plan"].append("missing_referrals")
-    if encounter_type == "counselling_or_education" and "hypogly" in plan.lower() and "medication" not in text_lower and "insulin" not in text_lower:
+    if encounter_type == "counselling_education" and "hypogly" in plan.lower() and "medication" not in text_lower and "insulin" not in text_lower:
         issues["plan"].append("premature_hypoglycaemia_safety_netting")
-    if encounter_type == "counselling_or_education" and plan_context.get("education_provided"):
+    if encounter_type == "counselling_education" and plan_context.get("education_provided"):
         education_terms = " ".join(plan_context["education_provided"]).lower()
         required_markers = [
             ("teach-back" in education_terms, "teach-back"),
@@ -1096,7 +1177,7 @@ def _regenerate_weak_sections(transcription: str, soap: dict, clinical_represent
             continue
         if section == "subjective" and str(updated.get("subjective", "")).strip():
             continue
-        if section == "plan" and encounter_type == "acute_presentation" and str(updated.get("plan", "")).strip():
+        if section == "plan" and encounter_type == "acute_visit" and str(updated.get("plan", "")).strip():
             continue
 
         try:
@@ -1315,7 +1396,7 @@ def _fallback_subjective(transcription: str, symptoms: list, clinical_representa
     )
     return {
         "patient": patient.get("name") or "Not documented",
-        "encounter_type": encounter.get("type") or "general_consultation",
+        "encounter_type": encounter.get("type") or "follow_up",
         "chief_complaint": chief_complaint,
         "symptoms": subjective_data.get("historical_symptoms") or symptom_list,
         "ideas": subjective_data.get("ideas", []),
@@ -1379,9 +1460,9 @@ def _fallback_plan(medications: list, procedures: list, clinical_representation:
     plan_context = clinical_representation.get("plan_context", {})
     encounter_type = clinical_representation.get("encounter", {}).get("type")
     plan_items = []
-    if medication_list and encounter_type != "counselling_or_education":
+    if medication_list and encounter_type != "counselling_education":
         plan_items.append(f"Medications: {', '.join(medication_list)}")
-    if procedure_list and encounter_type != "counselling_or_education":
+    if procedure_list and encounter_type != "counselling_education":
         plan_items.append(f"Procedures: {', '.join(procedure_list)}")
     if plan_context.get("education_provided"):
         plan_items.append(f"Education: {'; '.join(plan_context['education_provided'])}")
