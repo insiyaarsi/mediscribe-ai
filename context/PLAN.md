@@ -1,43 +1,72 @@
 # Plan
 
-This plan reflects the current project state as of 2026-04-25.
+This plan was locked on 2026-05-04 after reviewing all Markdown files in `context/` plus the current backend and frontend implementation.
 
-## Immediate Priorities
+## Direction
 
-1. Finish the documentation baseline so project state is easy to understand.
-2. Formalize Alembic migrations so schema changes stop depending on startup fallback behavior.
-3. Verify the full local development path from clean setup through authenticated transcription.
+MediScribe AI should stay focused on a low-cost, portfolio-quality product for individual clinicians, trainees, and small practices. The current core app is already in place: auth, upload, transcription, medical validation, entity extraction, SOAP generation, history, settings, Docker, and local dev scripts. The next work should harden the foundation first, then add roadmap features in small, demoable phases.
 
-## Near-Term Engineering Work
+Do not edit the old root `README.md` unless explicitly requested. Use `context/`, `project_memory.md`, and inspected code as the current source of truth.
 
-1. Create the first real migration set for `users`, `transcriptions`, `medical_entities`, and `soap_notes`.
-2. Define migration workflow for local development, first boot, and deployment.
-3. Run a clean-environment smoke test for backend, frontend, auth, upload, history, and deletion flows.
-4. Review deployment assumptions for Railway backend/Postgres and Vercel frontend.
+## Phase 1 — Stabilize The Foundation
 
-## Medium-Term Work
+- Create the first Alembic migration baseline for `users`, `transcriptions`, `medical_entities`, and `soap_notes`, including note-style profile columns.
+- Make migrations the documented source of truth while keeping startup table creation only as a temporary local fallback until verified.
+- Verify clean local setup: database, backend, frontend, registration, login, upload, result display, history detail, delete one, delete all, account delete.
+- Confirm deployment assumptions for Railway backend/Postgres and Vercel frontend.
 
-1. Add stronger testing around auth, history, and the transcription response contract.
-2. Improve operational docs for environment variables and deployment.
-3. Tighten product polish on frontend flows, validation messaging, and reliability.
+Status: complete for local migration/backend/frontend foundation as of 2026-05-05. Full transcription smoke remains dependent on adding or supplying a repeatable sample audio clip.
 
-## Longer-Term Opportunities
+Success criteria:
 
-1. CI checks for linting, build, and smoke tests
-2. More robust observability / error logging
-3. Better demo packaging for admissions and recruiter review
-4. More advanced medical note quality evaluation
+- `alembic upgrade head` works against a clean database.
+- Core auth, transcription, history, and deletion flows are reproducible from scratch.
+- Deployment environment variables and CORS expectations are documented clearly.
 
-## Constraints To Keep In Mind
+## Phase 2 — Finish Clinician Style Profiles And Encounter Context
 
-- Existing `README.md` must remain untouched unless explicitly requested
-- Some repo docs are older than the current code state
-- Alembic is partially initialized but not yet the live migration source of truth
-- The project is intentionally trying to stay low-cost
+- Complete the already-started style profile work: saved note style, preferred focus, plan bullets, and patient-friendly language.
+- Polish upload-time encounter selection so every transcription has a resolved encounter type.
+- Ensure result and history views show the encounter type and style profile used for the note.
+- Keep backend validation conservative: unknown encounter/style values normalize to safe defaults.
 
-## Success Criteria For The Next Phase
+Expected API surface:
 
-- New contributor can get the app running quickly
-- Database schema changes are migration-driven
-- Core auth and transcription flows are reproducible from scratch
-- Deployment path is documented clearly enough to execute without guesswork
+- Keep `POST /api/transcribe` multipart fields for `encounter_type` and optional style overrides.
+- Keep `PUT /api/auth/me` as the persistence API for default documentation style.
+- Extend history response only if needed to persist/display encounter and style metadata.
+
+## Phase 3 — Charting Export Workflow
+
+- Add chart-ready copy actions for SOAP note sections and the full note.
+- Improve the existing download flow into predictable plain-text export with patient/date-aware filenames.
+- Add lightweight frontend controls for copying transcript, copying SOAP, and downloading the note.
+- Avoid EHR integration, browser extensions, or compliance-heavy export claims in this phase.
+
+## Phase 4 — Source-Linked Review Mode
+
+- Capture or derive transcript chunks so generated content can be reviewed against source evidence.
+- Add a review view that compares SOAP sections with relevant transcript snippets.
+- Start with heuristic links from entities, keywords, and clinical extraction data before attempting precise LLM citation mapping.
+- Label evidence as supporting transcript excerpts, not definitive citations.
+
+## Phase 5 — Small-Practice Workflow Pack And Quality Checks
+
+- Generate optional post-visit artifacts: patient instructions and referral letter draft.
+- Add specialty-aware quality checks using the existing clinical representation and quality report foundation.
+- Surface missing documentation items as review prompts, not hard errors.
+- Keep the workflow centered on finishing a visit: note, instructions, referral, quality checklist.
+
+## Phase 6 — Advanced Differentiators
+
+- Longitudinal pull-forward from prior notes after patient identity and safety rules are designed.
+- Review-first coding suggestions with explicit confidence and disclaimers.
+- Personal documentation memory beyond static presets.
+- Small-clinic workspace features such as follow-up tasks and richer visit packaging.
+
+## Test Strategy
+
+- Backend: focused tests for auth, protected history access, style profile updates, transcribe request validation, and response shape.
+- Frontend: `npm run build` plus manual smoke coverage for login, settings, upload, results, history, export, and review mode.
+- Migration: verify `alembic upgrade head` on both clean and existing dev databases.
+- End-to-end: register, upload valid audio, reject short/non-medical/unsupported inputs, inspect history, export note, delete records.

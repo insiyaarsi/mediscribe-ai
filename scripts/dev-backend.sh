@@ -31,4 +31,6 @@ fi
 
 echo "Starting backend locally with reload on http://localhost:8000"
 echo "Using DATABASE_URL=$DATABASE_URL"
+echo "Applying database migrations with Alembic"
+alembic -c alembic.ini upgrade head
 exec uvicorn main:app --reload --host 0.0.0.0 --port 8000

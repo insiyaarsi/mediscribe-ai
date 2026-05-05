@@ -15,6 +15,9 @@ downloads/
 eggs/
 .eggs/
 lib/
+!backend/lib/
+!backend/lib/__init__.py
+!backend/lib/utils.py
 lib64/
 parts/
 sdist/
@@ -201,10 +204,12 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
+# Codex workspace mount/local marker
+.codex
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
 __marimo__/
 .env
 frontend/.env.local
-

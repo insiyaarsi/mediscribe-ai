@@ -39,6 +39,7 @@ What this does:
 - automatically activates `.venv` if it exists
 - keeps using the project `.env` for API keys and JWT secret
 - overrides `DATABASE_URL` to `localhost:5432` so the local backend can talk to the Docker database
+- applies pending Alembic migrations before starting the API
 - starts FastAPI with `uvicorn --reload`
 
 Backend URL:
@@ -99,6 +100,15 @@ If needed, restart just the DB:
 
 ```bash
 docker compose up -d db
+```
+
+### Run migrations manually
+
+`./scripts/dev-backend.sh` runs migrations automatically. To apply them by hand:
+
+```bash
+cd backend
+DATABASE_URL=postgresql://mediscribe:mediscribe_dev_password@localhost:5432/mediscribe alembic -c alembic.ini upgrade head
 ```
 
 ### When to switch back to Docker
