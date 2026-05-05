@@ -15,6 +15,8 @@ Do not edit the old root `README.md` unless explicitly requested. Use `context/`
 - Verify clean local setup: database, backend, frontend, registration, login, upload, result display, history detail, delete one, delete all, account delete.
 - Confirm deployment assumptions for Railway backend/Postgres and Vercel frontend.
 
+Status: complete for local migration/backend/frontend foundation as of 2026-05-05. Full transcription smoke remains dependent on adding or supplying a repeatable sample audio clip.
+
 Success criteria:
 
 - `alembic upgrade head` works against a clean database.

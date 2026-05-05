@@ -1,6 +1,6 @@
 # Progress Tracker
 
-Status snapshot date: 2026-05-04
+Status snapshot date: 2026-05-05
 
 ## Product Areas
 
@@ -8,8 +8,8 @@ Status snapshot date: 2026-05-04
 | --- | --- | --- |
 | Backend API foundation | Complete | FastAPI app, health, auth, history, transcription endpoints exist |
 | Authentication | Complete | Register, login, `/api/auth/me`, account delete, bearer auth |
-| Database schema | Complete with caveat | ORM schema exists and persists data; migration workflow still pending |
-| Alembic migrations | In progress | Baseline migration added; local/backend startup now runs `alembic upgrade head` |
+| Database schema | Complete | ORM schema exists and first Alembic baseline is verified |
+| Alembic migrations | Complete for baseline | Baseline migration verified against local PostgreSQL; backend startup runs `alembic upgrade head` |
 | Transcription pipeline | Complete | Upload, transcription, normalization, validation, extraction, SOAP generation |
 | Medical validation | Complete | Invalid clinical content is rejected before downstream steps |
 | Entity extraction | Complete | `scispacy` plus dictionary-based categorization |
@@ -38,7 +38,7 @@ Status snapshot date: 2026-05-04
 | Migration-safe database workflow | In progress |
 | Public deployment readiness | In progress |
 | Final polish and handoff readiness | In progress |
-| Phase 1 foundation stabilization | In progress |
+| Phase 1 foundation stabilization | Complete with note | Migration/local foundation verified; transcription smoke needs a checked-in or supplied sample audio clip |
 | Phase 2 style and encounter polish | Planned |
 | Phase 3 charting export workflow | Planned |
 | Phase 4 source-linked review | Planned |
@@ -47,7 +47,7 @@ Status snapshot date: 2026-05-04
 
 ## Active Blockers / Gaps
 
-- Migration-first workflow is not done yet
 - Deployment runbook is not fully locked in
 - Historical docs in the repo are mixed-era and need careful interpretation
 - Future feature work should proceed phase by phase from `context/PLAN.md`
+- End-to-end transcription smoke needs a repeatable sample audio fixture

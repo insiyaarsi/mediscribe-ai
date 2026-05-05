@@ -2,7 +2,7 @@
 
 ## Latest Snapshot
 
-As of 2026-05-04, MediScribe AI is no longer just a transcription prototype. The repo contains a working full-stack application with authentication, PostgreSQL persistence, a multi-step medical documentation pipeline, and a modern React frontend. The active roadmap is now locked into six phases: foundation stabilization, clinician style/encounter polish, charting export, source-linked review, small-practice workflow pack, and advanced differentiators.
+As of 2026-05-05, MediScribe AI is no longer just a transcription prototype. The repo contains a working full-stack application with authentication, PostgreSQL persistence, a multi-step medical documentation pipeline, and a modern React frontend. Phase 1 foundation work is complete for the migration/local verification layer.
 
 ## Major Progress Made
 
@@ -28,11 +28,12 @@ As of 2026-05-04, MediScribe AI is no longer just a transcription prototype. The
 
 ## What The Project Still Needs
 
-- Complete verification of Alembic migration usage against local PostgreSQL and deployment PostgreSQL
+- Deployment PostgreSQL verification
 - End-to-end deployment verification
 - Stronger automated testing
 - Continued documentation cleanup and synchronization
 - Phase-by-phase implementation against the locked roadmap in `context/PLAN.md`
+- Repeatable transcription smoke testing with a supplied or checked-in sample audio clip
 
 ## Phase 1 Progress
 
@@ -40,6 +41,9 @@ As of 2026-05-04, MediScribe AI is no longer just a transcription prototype. The
 - Updated local backend startup so pending migrations run before Uvicorn.
 - Updated Docker backend startup so containerized runs apply migrations before serving.
 - Verified the migration path with SQLite clean and pre-existing schema checks.
+- Verified `alembic upgrade head` and `alembic current` against local PostgreSQL.
+- Verified backend health plus register/me/history/login/delete-account API smoke against the local backend.
+- Verified frontend production build.
 
 ## Interpretation
 

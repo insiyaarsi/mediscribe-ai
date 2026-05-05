@@ -40,7 +40,6 @@ This file tracks the project feature set by status.
 
 ## In Progress Or Partially Complete
 
-- Alembic migration workflow
 - Clinician-specific note style profiles
 - Encounter type selection before upload
 - Production deployment
@@ -49,7 +48,6 @@ This file tracks the project feature set by status.
 
 ## Planned / Expected Next
 
-- Local PostgreSQL verification for the first Alembic migration
 - Complete style profile and encounter context polish
 - Chart-ready copy/export workflow
 - Source-linked review mode
@@ -66,3 +64,4 @@ This file tracks the project feature set by status.
 - The backend returns validation failures early and skips entity extraction / SOAP generation when content is not considered medical.
 - History data is persisted on the server and cached in the frontend store for responsiveness.
 - Feature development is now organized into six phases in `context/PLAN.md`.
+- Baseline Alembic migration workflow is verified for local PostgreSQL.
