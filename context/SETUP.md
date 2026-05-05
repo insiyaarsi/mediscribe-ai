@@ -88,7 +88,24 @@ docker compose down -v
 
 - The backend script will auto-activate `.venv` if it exists.
 - The backend script also defaults `DATABASE_URL` to local Postgres on `localhost:5432` if one is not already provided.
+- The backend script applies pending Alembic migrations before starting Uvicorn.
 - The frontend API client defaults to `http://localhost:8000` when `VITE_API_URL` is not set.
+
+## Database Migrations
+
+Alembic is now the migration source of truth. The first baseline migration creates:
+
+- `users`
+- `transcriptions`
+- `medical_entities`
+- `soap_notes`
+
+Manual local migration command:
+
+```bash
+cd backend
+DATABASE_URL=postgresql://mediscribe:mediscribe_dev_password@localhost:5432/mediscribe alembic -c alembic.ini upgrade head
+```
 
 ## Recommended Verification Checklist
 
